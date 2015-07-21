@@ -25,18 +25,18 @@ Adapted from gtrieScanner - http://www.dcc.fc.up.pt/gtries/
 //#include "GraphUtils.h"
 
 // Static variables
-setword Isomorphism::workspace[WORKSPACE_SIZE];
+/*setword Isomorphism::workspace[WORKSPACE_SIZE];
 int Isomorphism::n,Isomorphism::m;
 set *Isomorphism::gv;
 graphnau Isomorphism::g[MAXN*MAXM];
 int Isomorphism::lab[MAXN];
 int Isomorphism::ptn[MAXN];
 int Isomorphism::orbits[MAXN];
-bool Isomorphism::dir;
+bool Isomorphism::dir;*/
 
 DEFAULTOPTIONS(options);
 statsblk(stats);
-graphnau mm[MAXN*MAXM];
+__thread graphnau mm[MAXN*MAXM];
 
 void Isomorphism::initNauty(int size, bool directed) {
   n = size;

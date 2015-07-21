@@ -45,11 +45,11 @@ typedef Graph::GraphNode GNode;
 
 class Isomorphism {
  private:  
-  static bool dir;
-  static setword workspace[WORKSPACE_SIZE];
-  static int n,m, lab[MAXN], ptn[MAXN], orbits[MAXN];
-  static set *gv;
-  static graphnau g[MAXN*MAXM];
+  bool dir;
+  setword workspace[WORKSPACE_SIZE];
+  int n,m, lab[MAXN], ptn[MAXN], orbits[MAXN];
+  set *gv;
+  graphnau g[MAXN*MAXM];
 
   /*static void _goCan(int x, int pos, const char *in, 
 		     char *perm, char *used,
@@ -58,10 +58,10 @@ class Isomorphism {
   static void _goCan2(int pos, const char *in, int *perm, bool *used, char *best, int size, char *current);*/
     
  public:
-  static void initNauty(int size, bool dir);
-  static void finishNauty();
+  void initNauty(int size, bool dir);
+  void finishNauty();
 
-  static void canonicalStrNauty(std::string v, char *s);
+  void canonicalStrNauty(std::string v, char *s);
 
   /*static void canonicalNauty(const char *in, char *out, int size);
   static void canonicalBigger(const char *in, char *out, int size);

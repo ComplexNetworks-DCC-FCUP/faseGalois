@@ -5,6 +5,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "Lonestar/BoilerPlate.h"
 #include "Isomorphism.h"
+#include <string>
 
 typedef Galois::Graph::FirstGraph<int, int, false> Graph;
 typedef Graph::GraphNode GNode;
@@ -17,8 +18,7 @@ Galois::GAccumulator<int> occs;
 Graph graph;
 int K;
 
-#include <string>
-std::map <std::string, int> freqs;
+Galois::GMapElementAccumulator<std::map<std::string, int> > freqs;
 
 void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNode>& ctx) {
   list nvsub;
@@ -121,53 +121,54 @@ std::vector<Graph::GraphNode> createGraph(int n, int m){
   return nodes;
 }
 
-void getSubgraphFrequencies(){
-  std::map<long long int, int> isoIt = isoCount.reduce();
-  for (auto element : isoIt) {
-    char s[K * K + 1];
-    for(int i = 0; i < K*K; i++) s[i] = '0';
-    s[K*K] = '\0';
+void getSubgraphFrequencies(std::pair<long long int, int> element) {
+  Isomorphism *iso = new Isomorphism();
+  iso->initNauty(K, false);
 
-    // Rebuild Graph (Matrix) Representation
-    s[1] = '1'; s[1*K] = '1';
-    for (int nodex = 2, nodey = 0, i = 0; ; nodey++, i++){
-      if(nodey == nodex) {
-        nodex++;
-        nodey = 0;
-        if(nodex == K) break;
-      }
+  char s[K * K + 1];
+  for(int i = 0; i < K*K; i++) s[i] = '0';
+  s[K*K] = '\0';
 
-      int conn = element.first & (1LL << i) ? 1 : 0;
-
-      if(conn){
-        s[nodex*K + nodey] = '1';
-        s[nodey*K + nodex] = '1';
-      }
+  // Rebuild Graph (Matrix) Representation
+  s[1] = '1'; s[1*K] = '1';
+  for (int nodex = 2, nodey = 0, i = 0; ; nodey++, i++){
+    if(nodey == nodex) {
+      nodex++;
+      nodey = 0;
+      if(nodex == K) break;
     }
 
-    /*printf("Matrix: ");for(int i = 0; i < K; i++){
-      for(int j = 0; j < K; j++){
-        printf("%c", s[i*K + j]);
-      }
-      printf("|");
+    int conn = element.first & (1LL << i) ? 1 : 0;
+
+    if(conn){
+      s[nodex*K + nodey] = '1';
+      s[nodey*K + nodex] = '1';
+    }
+  }
+
+  /*printf("Matrix: ");for(int i = 0; i < K; i++){
+    for(int j = 0; j < K; j++){
+    printf("%c", s[i*K + j]);
+    }
+    printf("|");
     }*/
 
-    // Compute Canonical Types
-    char nauty_s[K * K + 1];
-    nauty_s[0] = '\0';
-    Isomorphism::canonicalStrNauty(s, nauty_s);
-    std::string str = std::string(nauty_s);
-    freqs[str] += element.second;
+  // Compute Canonical Types
+  char nauty_s[K * K + 1];
+  nauty_s[0] = '\0';
+  iso->canonicalStrNauty(s, nauty_s);
+  std::string str = std::string(nauty_s);
+  freqs.update(str, element.second);
 
-    /*printf("==> Type: : ");
+  /*printf("==> Type: : ");
     for(int i = 0; i < K; i++){
-      for(int j = 0; j < K; j++){
-        printf("%c", nauty_s[i*K + j]);
-      }
-      printf("|");
+    for(int j = 0; j < K; j++){
+    printf("%c", nauty_s[i*K + j]);
+    }
+    printf("|");
     }
     printf("\n");*/
-  }
+  iso->finishNauty();
 }
 
 int main(int argc, char **argv) {
@@ -181,7 +182,6 @@ int main(int argc, char **argv) {
 
   Galois::setActiveThreads(th);
 
-  Isomorphism::initNauty(K, false);
   //LonestarSntart(argc, argv, 0,0,0);
 
   int n, m;
@@ -190,7 +190,7 @@ int main(int argc, char **argv) {
   std::vector<Graph::GraphNode> nodes = createGraph(n, m);
 
   using namespace Galois::WorkList;
-  typedef dChunkedFIFO<64> dChunk;
+  typedef ChunkedFIFO<1> dChunk;
 
   Galois::StatTimer T;
   T.start();
@@ -209,14 +209,20 @@ int main(int argc, char **argv) {
     Galois::for_each(WNode(LPair(vsub, vext), 0LL), FaSE(), Galois::wl<dChunk>());
   }
 
+  std::map<long long int, int> isoIt = isoCount.reduce();
+  Galois::do_all(isoIt.begin(), isoIt.end(), getSubgraphFrequencies);
+
+  std::map<std::string, int> freqsReduced = freqs.reduce();
+
+//  for(auto kv : freqsReduced)
+//    printf("%s has %d occurrences\n",(kv.first).c_str(), kv.second);
+
+  int tot = 0;
+  for(auto kv : freqsReduced)
+    tot += kv.second;
+  printf("Total subgraphs: %d\n", tot);
+
   T.stop();
-
-  getSubgraphFrequencies();
-
-  for(auto kv : freqs)
-    printf("%s has %d occurrences\n",(kv.first).c_str(), kv.second);
-
-  Isomorphism::finishNauty();
 
   return 0;
 }
