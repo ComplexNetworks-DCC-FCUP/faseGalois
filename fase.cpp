@@ -21,31 +21,23 @@ int K;
 Galois::GMapElementAccumulator<std::map<std::string, int> > freqs;
 
 void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNode>& ctx) {
-  list nvsub;
-  for (auto n : vsub)
-    nvsub.push_back(n);
-
-  list nvext;
-  for (auto n : vext)
-    nvext.push_back(n);
+  std::sort(vsub.begin(), vsub.end());
 
   while (!vext.empty()) {
     GNode nx = vext.back();
     vext.pop_back();
-    nvext.pop_back();
-    nvsub.push_back(nx);
 
     long long int label = clabel;
-
     int added = 0;
+
     for (auto edge : graph.out_edges(nx, Galois::MethodFlag::NONE)) {
       GNode dst = graph.getEdgeDst(edge);
-      if (graph.getData(dst, Galois::MethodFlag::NONE) <= graph.getData(vsub[0], Galois::MethodFlag::NONE) || find(vsub.begin(), vsub.end(), dst) != vsub.end())
+      if (graph.getData(dst, Galois::MethodFlag::NONE) <= graph.getData(vsub[0], Galois::MethodFlag::NONE) || std::binary_search(vsub.begin(), vsub.end(), dst))
         continue;
 
       int fl = 0;
       for (auto edge2 : graph.out_edges(dst, Galois::MethodFlag::NONE))
-        if (find(vsub.begin(), vsub.end(), graph.getEdgeDst(edge2)) != vsub.end()) {
+        if (std::binary_search(vsub.begin(), vsub.end(), graph.getEdgeDst(edge2))) {
           fl = 1;
           break;
         }
@@ -54,25 +46,28 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
         continue;
 
       added++;
-      nvext.push_back(dst);
+      vext.push_back(dst);
     }
 
-    if (nvsub.size() >= 3) {
+
+    if (1 + vsub.size() >= 3) {
       int st = vsub.size() * (vsub.size() - 1) / 2 - 1;
 
-      for (auto edge : graph.out_edges(nx, Galois::MethodFlag::NONE))
-        for (int i = 0; i < (int)vsub.size(); i++)
-          if (vsub[i] == graph.getEdgeDst(edge)) {
-            label |= (1LL << (st + i));
-            break;
-          }
+      for (int i = 0; i < (int)vsub.size(); i++) {
+        GNode dst = vsub[i];
+        
+        if (graph.findEdge(nx, dst, Galois::MethodFlag::NONE) != graph.edge_end(nx, Galois::MethodFlag::NONE))
+          label |= (1LL << (st + i));
+      }
     }
 
-    ctx.push(WNode(LPair(nvsub, nvext), label));
-    nvsub.pop_back();
+    vsub.push_back(nx);
+    ctx.push(WNode(LPair(vsub, vext), label));
+    vsub.pop_back();
+
     while (added) {
       added--;
-      nvext.pop_back();
+      vext.pop_back();
     }
   }
 }
@@ -190,7 +185,7 @@ int main(int argc, char **argv) {
   std::vector<Graph::GraphNode> nodes = createGraph(n, m);
 
   using namespace Galois::WorkList;
-  typedef ChunkedFIFO<64> dChunk;
+  typedef ChunkedLIFO<4> dChunk;
 
   Galois::StatTimer T;
   T.start();
