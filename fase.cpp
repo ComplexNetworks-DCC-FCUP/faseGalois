@@ -14,14 +14,12 @@ typedef std::vector<GNode> list;
 typedef std::pair<list, list> LPair;
 typedef std::pair<LPair, long long int> WNode;
 
+Galois::GMapElementAccumulator<std::unordered_map<std::string, int> > freqs;
 Galois::GMapElementAccumulator<std::unordered_map<long long int, int> > isoCount;
-Galois::GAccumulator<int> occs;
 Graph graph;
 int K;
 
-Galois::GMapElementAccumulator<std::unordered_map<std::string, int> > freqs;
-
-void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNode>& ctx) {
+void expand(list& vsub, list& vext, long long int clabel, Galois::UserContext<WNode>& ctx) {
   std::sort(vsub.begin(), vsub.end());
 
   while (!vext.empty()) {
@@ -75,25 +73,10 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
 
 struct FaSE {
   void operator()(WNode& req, Galois::UserContext<WNode>& ctx) const {
-    if (req.first.first.size() == K) {
-      occs += 1;
+    if (req.first.first.size() == K)
       isoCount.update(req.second, 1);
-
-/*      printf("Found: ");
-      for (auto a : req.first)
-        printf("%d ", graph.getData(a).first);
-        printf("\n");*/
-    }
-    else {
-/*      for (auto a : req.first)
-        printf("%d ", graph.getData(a).first);
-      printf("|");
-      for (auto a : req.second)
-        printf("%d ", graph.getData(a).first);
-        printf("\n");*/
-
+    else
       expand(req.first.first, req.first.second, req.second, ctx);
-    }
   }
 };
 
@@ -186,7 +169,7 @@ int main(int argc, char **argv) {
   std::vector<Graph::GraphNode> nodes = createGraph(n, m);
 
   using namespace Galois::WorkList;
-  typedef ChunkedLIFO<4> dChunk;
+  typedef ChunkedLIFO<1> dChunk;
 
   Galois::StatTimer T;
   T.start();
