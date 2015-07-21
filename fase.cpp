@@ -190,7 +190,7 @@ int main(int argc, char **argv) {
   std::vector<Graph::GraphNode> nodes = createGraph(n, m);
 
   using namespace Galois::WorkList;
-  typedef ChunkedFIFO<1> dChunk;
+  typedef ChunkedFIFO<64> dChunk;
 
   Galois::StatTimer T;
   T.start();
