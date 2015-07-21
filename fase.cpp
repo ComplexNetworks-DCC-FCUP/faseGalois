@@ -6,6 +6,7 @@
 #include "Lonestar/BoilerPlate.h"
 #include "Isomorphism.h"
 #include <string>
+#include <unordered_map>
 
 typedef Galois::Graph::FirstGraph<int, int, false> Graph;
 typedef Graph::GraphNode GNode;
@@ -13,12 +14,12 @@ typedef std::vector<GNode> list;
 typedef std::pair<list, list> LPair;
 typedef std::pair<LPair, long long int> WNode;
 
-Galois::GMapElementAccumulator<std::map<long long int, int> > isoCount;
+Galois::GMapElementAccumulator<std::unordered_map<long long int, int> > isoCount;
 Galois::GAccumulator<int> occs;
 Graph graph;
 int K;
 
-Galois::GMapElementAccumulator<std::map<std::string, int> > freqs;
+Galois::GMapElementAccumulator<std::unordered_map<std::string, int> > freqs;
 
 void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNode>& ctx) {
   std::sort(vsub.begin(), vsub.end());
@@ -204,10 +205,10 @@ int main(int argc, char **argv) {
     Galois::for_each(WNode(LPair(vsub, vext), 0LL), FaSE(), Galois::wl<dChunk>());
   }
 
-  std::map<long long int, int> isoIt = isoCount.reduce();
+  std::unordered_map<long long int, int> isoIt = isoCount.reduce();
   Galois::do_all(isoIt.begin(), isoIt.end(), getSubgraphFrequencies);
 
-  std::map<std::string, int> freqsReduced = freqs.reduce();
+  std::unordered_map<std::string, int> freqsReduced = freqs.reduce();
 
 //  for(auto kv : freqsReduced)
 //    printf("%s has %d occurrences\n",(kv.first).c_str(), kv.second);
