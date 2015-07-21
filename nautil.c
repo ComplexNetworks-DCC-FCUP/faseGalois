@@ -459,10 +459,10 @@ fmptn(int *lab, int *ptn, int level, set *fix, set *mcr, int m, int n)
 *****************************************************************************/
 
 void
-doref(graph *g, int *lab, int *ptn, int level, int *numcells,
+doref(graphnau *g, int *lab, int *ptn, int level, int *numcells,
      int *qinvar, permutation *invar, set *active, int *code,
-     void (*refproc)(graph*,int*,int*,int,int*,permutation*,set*,int*,int,int),
-     void (*invarproc)(graph*,int*,int*,int,int,int,permutation*,
+     void (*refproc)(graphnau*,int*,int*,int,int*,permutation*,set*,int*,int,int),
+     void (*invarproc)(graphnau*,int*,int*,int,int,int,permutation*,
                                                      int,boolean,int,int),
      int mininvarlev, int maxinvarlev, int invararg,
      boolean digraph, int m, int n)
@@ -568,10 +568,10 @@ doref(graph *g, int *lab, int *ptn, int level, int *numcells,
 *****************************************************************************/
 
 void
-maketargetcell(graph *g, int *lab, int *ptn, int level, set *tcell,
+maketargetcell(graphnau *g, int *lab, int *ptn, int level, set *tcell,
            int *tcellsize, int *cellpos, int tc_level, boolean digraph,
 	   int hint,
-           int (*targetcell)(graph*,int*,int*,int,int,boolean,int,int,int),
+           int (*targetcell)(graphnau*,int*,int*,int,int,boolean,int,int,int),
            int m, int n)
 {
 	int i,j,k;

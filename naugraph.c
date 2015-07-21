@@ -59,7 +59,7 @@ static __thread int bucket[MAXN+2];
 *****************************************************************************/
 
 boolean
-isautom(graph *g, permutation *perm, boolean digraph, int m, int n)
+isautom(graphnau *g, permutation *perm, boolean digraph, int m, int n)
 {
 	set *pg;
 	int pos;
@@ -92,7 +92,7 @@ isautom(graph *g, permutation *perm, boolean digraph, int m, int n)
 *****************************************************************************/
 
 int
-testcanlab(graph *g, graph *canong, int *lab, int *samerows, int m, int n)
+testcanlab(graphnau *g, graphnau *canong, int *lab, int *samerows, int m, int n)
 {
 	int i,j;
 	set *ph;
@@ -134,7 +134,7 @@ testcanlab(graph *g, graph *canong, int *lab, int *samerows, int m, int n)
 *****************************************************************************/
 
 void
-updatecan(graph *g, graph *canong, permutation *lab, int samerows, int m, int n)
+updatecan(graphnau *g, graphnau *canong, permutation *lab, int samerows, int m, int n)
 {
 	int i;
 	set *ph;
@@ -169,7 +169,7 @@ updatecan(graph *g, graph *canong, permutation *lab, int samerows, int m, int n)
 *****************************************************************************/
 
 void
-refine(graph *g, int *lab, int *ptn, int level, int *numcells,
+refine(graphnau *g, int *lab, int *ptn, int level, int *numcells,
        permutation *count, set *active, int *code, int m, int n)
 {
 
@@ -332,7 +332,7 @@ refine(graph *g, int *lab, int *ptn, int level, int *numcells,
 *****************************************************************************/
 
 void
-refine1(graph *g, int *lab, int *ptn, int level, int *numcells,
+refine1(graphnau *g, int *lab, int *ptn, int level, int *numcells,
        permutation *count, set *active, int *code, int m, int n)
 {
 	int i,c1,c2,labc1;
@@ -519,7 +519,7 @@ cheapautom(int *ptn, int level, boolean digraph, int n)
 *****************************************************************************/
 
 static int
-bestcell(graph *g, int *lab, int *ptn, int level, int tc_level, int m, int n)
+bestcell(graphnau *g, int *lab, int *ptn, int level, int tc_level, int m, int n)
 {
 	int i;
 	set *gp;
@@ -609,7 +609,7 @@ bestcell(graph *g, int *lab, int *ptn, int level, int tc_level, int m, int n)
 *****************************************************************************/
 
 int
-targetcell(graph *g, int *lab, int *ptn, int level, int tc_level,
+targetcell(graphnau *g, int *lab, int *ptn, int level, int tc_level,
            boolean digraph, int hint, int m, int n)
 {
 	int i;

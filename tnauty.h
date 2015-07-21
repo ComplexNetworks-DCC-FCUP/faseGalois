@@ -688,11 +688,11 @@ typedef int boolean;    /* boolean MUST be the same as int */
 
 #define UPROC void      /* obsolete */
 
-typedef setword set,graph;
+typedef setword set,graphnau;
 typedef int nvector,np2vector;   /* obsolete */
 typedef shortish permutation;
 #ifdef NAUTY_IN_MAGMA
-typedef graph nauty_graph;
+typedef graphnau nauty_graph;
 typedef set nauty_set;
 #endif
 
@@ -729,25 +729,25 @@ struct optionstruct;  /* incomplete definition */
 typedef struct
 {
     boolean (*isautom)        /* test for automorphism */
-            (graph*,permutation*,boolean,int,int);
+            (graphnau*,permutation*,boolean,int,int);
     int     (*testcanlab)     /* test for better labelling */
-            (graph*,graph*,int*,int*,int,int);
+            (graphnau*,graphnau*,int*,int*,int,int);
     void    (*updatecan)      /* update canonical object */
-            (graph*,graph*,permutation*,int,int,int);
+            (graphnau*,graphnau*,permutation*,int,int,int);
     void    (*refine)         /* refine partition */
-            (graph*,int*,int*,int,int*,permutation*,set*,int*,int,int);
+            (graphnau*,int*,int*,int,int*,permutation*,set*,int*,int,int);
     void    (*refine1)        /* refine partition, MAXM==1 */
-            (graph*,int*,int*,int,int*,permutation*,set*,int*,int,int);
+            (graphnau*,int*,int*,int,int*,permutation*,set*,int*,int,int);
     boolean (*cheapautom)     /* test for easy automorphism */
             (int*,int,boolean,int);
     int     (*targetcell)     /* decide which cell to split */
-            (graph*,int*,int*,int,int,boolean,int,int,int);
+            (graphnau*,int*,int*,int,int,boolean,int,int,int);
     void    (*freedyn)(void); /* free dynamic memory */
     void    (*check)          /* check compilation parameters */
             (int,int,int,int);
-    void    (*init)(graph*,graph**,graph*,graph**,int*,int*,set*,
+    void    (*init)(graphnau*,graphnau**,graphnau*,graphnau**,int*,int*,set*,
                    struct optionstruct*,int*,int,int);
-    void    (*cleanup)(graph*,graph**,graph*,graph**,int*,int*,
+    void    (*cleanup)(graphnau*,graphnau**,graphnau*,graphnau**,int*,int*,
                       struct optionstruct*,statsblk*,int,int);
 } dispatchvec;
 
@@ -763,15 +763,15 @@ typedef struct optionstruct
     int linelength;           /* max chars/line (excl. '\n') for output */
     FILE *outfile;            /* file for output, if any */
     void (*userrefproc)       /* replacement for usual refine procedure */
-         (graph*,int*,int*,int,int*,permutation*,set*,int*,int,int);
+         (graphnau*,int*,int*,int,int*,permutation*,set*,int*,int,int);
     void (*userautomproc)     /* procedure called for each automorphism */
          (int,permutation*,int*,int,int,int);
     void (*userlevelproc)     /* procedure called for each level */
          (int*,int*,int,int*,statsblk*,int,int,int,int,int,int);
     void (*usernodeproc)      /* procedure called for each node */
-         (graph*,int*,int*,int,int,int,int,int,int);
+         (graphnau*,int*,int*,int,int,int,int,int,int);
     void (*invarproc)         /* procedure to compute vertex-invariant */
-         (graph*,int*,int*,int,int,int,permutation*,int,boolean,int,int);
+         (graphnau*,int*,int*,int,int,int,permutation*,int,boolean,int,int);
     int tc_level;             /* max level for smart target cell choosing */
     int mininvarlevel;        /* min level for invariant computation */
     int maxinvarlevel;        /* max level for invariant computation */
@@ -794,7 +794,7 @@ typedef struct optionstruct
 /* The following are obsolete.  Just use NULL. */
 #define NILFUNCTION ((void(*)())NULL)      /* nil pointer to user-function */
 #define NILSET      ((set*)NULL)           /* nil pointer to set */
-#define NILGRAPH    ((graph*)NULL)         /* nil pointer to graph */
+#define NILGRAPH    ((graphnau*)NULL)         /* nil pointer to graph */
 
 #define DEFAULTOPTIONS_GRAPH(options) optionblk options = \
  {0,FALSE,FALSE,FALSE,TRUE,FALSE,CONSOLWIDTH, \
@@ -1033,32 +1033,32 @@ extern "C" {
 extern void alloc_error(char*);
 extern void breakout(int*,int*,int,int,int,set*,int);
 extern boolean cheapautom(int*,int,boolean,int);
-extern void doref(graph*,int*,int*,int,int*,int*,permutation*,set*,int*,
-  void(*)(graph*,int*,int*,int,int*,permutation*,set*,int*,int,int),
-  void(*)(graph*,int*,int*,int,int,int,permutation*,int,boolean,int,int),
+extern void doref(graphnau*,int*,int*,int,int*,int*,permutation*,set*,int*,
+  void(*)(graphnau*,int*,int*,int,int*,permutation*,set*,int*,int,int),
+  void(*)(graphnau*,int*,int*,int,int,int,permutation*,int,boolean,int,int),
   int,int,int,boolean,int,int);
 extern void extra_autom(permutation*,int);
 extern void extra_level(int,int*,int*,int,int,int,int,int,int);
-extern boolean isautom(graph*,permutation*,boolean,int,int);
+extern boolean isautom(graphnau*,permutation*,boolean,int,int);
 extern dispatchvec dispatch_graph;
 extern int itos(int,char*);
 extern void fmperm(permutation*,set*,set*,int,int);
 extern void fmptn(int*,int*,int,set*,set*,int,int);
 extern void longprune(set*,set*,set*,set*,int);
-extern void nauty(graph*,int*,int*,set*,int*,optionblk*,
-                  statsblk*,set*,int,int,int,graph*);
-extern void maketargetcell(graph*,int*,int*,int,set*,int*,int*,int,boolean,
-           int,int (*)(graph*,int*,int*,int,int,boolean,int,int,int),int,int);
+extern void nauty(graphnau*,int*,int*,set*,int*,optionblk*,
+                  statsblk*,set*,int,int,int,graphnau*);
+extern void maketargetcell(graphnau*,int*,int*,int,set*,int*,int*,int,boolean,
+           int,int (*)(graphnau*,int*,int*,int,int,boolean,int,int,int),int,int);
 extern int nextelement(set*,int,int);
 extern int orbjoin(int*,permutation*,int);
 extern void permset(set*,set*,int,permutation*);
 extern void putstring(FILE*,char*);
-extern void refine(graph*,int*,int*,int,int*,permutation*,set*,int*,int,int);
-extern void refine1(graph*,int*,int*,int,int*,permutation*,set*,int*,int,int);
+extern void refine(graphnau*,int*,int*,int,int*,permutation*,set*,int*,int,int);
+extern void refine1(graphnau*,int*,int*,int,int*,permutation*,set*,int*,int,int);
 extern void shortprune(set*,set*,int);
-extern int targetcell(graph*,int*,int*,int,int,boolean,int,int,int);
-extern int testcanlab(graph*,graph*,int*,int*,int,int);
-extern void updatecan(graph*,graph*,permutation*,int,int,int);
+extern int targetcell(graphnau*,int*,int*,int,int,boolean,int,int,int);
+extern int testcanlab(graphnau*,graphnau*,int*,int*,int,int);
+extern void updatecan(graphnau*,graphnau*,permutation*,int,int,int);
 extern void writeperm(FILE*,permutation*,boolean,int,int);
 extern void nauty_freedyn(void);
 extern void nauty_check(int,int,int,int);

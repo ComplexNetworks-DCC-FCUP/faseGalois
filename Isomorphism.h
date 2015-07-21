@@ -37,7 +37,7 @@ Adapted from gtrieScanner - http://www.dcc.fc.up.pt/gtries/
 #define MAXN MAX_MOTIF_SIZE
 #define WORKSPACE_SIZE MAXN*160
 
-#include "nauty/nauty.h"
+#include "tnauty.h"
 #include "Galois/Graph/Graph.h"
 
 typedef Galois::Graph::FirstGraph<int, int, false> Graph;

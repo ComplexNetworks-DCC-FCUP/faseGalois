@@ -105,18 +105,18 @@ static void writemarker(int, int, int, int, int, int);
     /* copies of some of the options: */
 static __thread boolean getcanon,digraph,writeautoms,domarkers,cartesian;
 static __thread int linelength,tc_level,mininvarlevel,maxinvarlevel,invararg;
-static void (*usernodeproc)(graph*,int*,int*,int,int,int,int,int,int);
+static void (*usernodeproc)(graphnau*,int*,int*,int,int,int,int,int,int);
 static void (*userautomproc)(int,permutation*,int*,int,int,int);
 static void (*userlevelproc)
               (int*,int*,int,int*,statsblk*,int,int,int,int,int,int);
 static void (*invarproc)
-	      (graph*,int*,int*,int,int,int,permutation*,int,boolean,int,int);
+	      (graphnau*,int*,int*,int,int,int,permutation*,int,boolean,int,int);
 static __thread FILE *outfile;
 static __thread dispatchvec dispatch;
 
     /* local versions of some of the arguments: */
 static __thread int m,n;
-static __thread graph *g,*canong;
+static __thread graphnau *g,*canong;
 static __thread int *orbits;
 static __thread statsblk *stats;
     /* temporary versions of some stats: */
@@ -236,9 +236,9 @@ static __thread set *fmptr;                   /* pointer into workspace */
 *****************************************************************************/
 
 void
-nauty(graph *g_arg, int *lab, int *ptn, set *active_arg,
+nauty(graphnau *g_arg, int *lab, int *ptn, set *active_arg,
       int *orbits_arg, optionblk *options, statsblk *stats_arg,
-      set *ws_arg, int worksize, int m_arg, int n_arg, graph *canong_arg)
+      set *ws_arg, int worksize, int m_arg, int n_arg, graphnau *canong_arg)
 {
         int i;
         int numcells;
