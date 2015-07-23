@@ -40,9 +40,6 @@ Adapted from gtrieScanner - http://www.dcc.fc.up.pt/gtries/
 #include "tnauty.h"
 #include "Galois/Graph/Graph.h"
 
-typedef Galois::Graph::FirstGraph<int, int, false> Graph;
-typedef Graph::GraphNode GNode;
-
 class Isomorphism {
  private:  
   bool dir;
