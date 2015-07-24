@@ -187,7 +187,7 @@ struct FaSE {
                 std::find(req.first.second.begin(), req.first.second.end(), dst) != req.first.second.end())
           continue;
 
-        req.first.first.push_back(dst);
+        req.first.second.push_back(dst);
       }
     }
 
