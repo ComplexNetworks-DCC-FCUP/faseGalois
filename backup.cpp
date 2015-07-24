@@ -44,7 +44,7 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
     size_t nx = vext.back();
     vext.pop_back();
 
-    long long unsigned label = clabel;
+    long long int label = clabel;
     int added = 0;
 
     for (auto ii = graph.edge_begin(nx, Galois::MethodFlag::NONE),
@@ -53,7 +53,7 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
       if (graph.idFromNode(dst) <= graph.idFromNode(nvsub[0]) || std::binary_search(vsub.begin(), vsub.end(), dst))
         continue;
 
-      bool fl = 0;
+      int fl = 0;
       for (auto ii2 = graph.edge_begin(dst, Galois::MethodFlag::NONE),
            ee2 = graph.edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
         if (std::binary_search(vsub.begin(), vsub.end(), graph.idFromNode(graph.getEdgeDst(ii2)))) {
