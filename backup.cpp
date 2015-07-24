@@ -16,7 +16,7 @@ typedef Galois::Graph::LC_CSR_Graph<int, void>
 typedef Galois::Graph::LC_InOut_Graph<InnerGraph> Graph;
 typedef Graph::GraphNode GNode;
 typedef std::vector<size_t> list;
-typedef std::pair<list, list> LPair;
+typedef std::pair<int*, list> LPair;
 typedef std::pair<LPair, long long int> WNode;
 
 Galois::GMapElementAccumulator<std::unordered_map<std::string, int> > freqs;
@@ -28,17 +28,21 @@ static cll::opt<std::string> filename(cll::Positional, cll::desc("<input file>")
 static cll::opt<std::string> transposeGraphName(cll::Positional, cll::desc("<transpose file>"), cll::Required);
 static cll::opt<int> K(cll::Positional, cll::desc("<subgraph size>"), cll::Required);
 
-void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNode>& ctx) {
-  if (vsub.size() == K) {
+void expand(int* vsub, list vext, long long int clabel, Galois::UserContext<WNode>& ctx) {
+  //printf("depth: %d\n", vsub[K]);
+
+  if (vsub[K] == K) {
     isoCount.update(clabel, 1);
     return;
   }
 
-  list nvsub;
-  for (auto n : vsub)
-    nvsub.push_back(n);
+  int nvsub[(int)K];
+  for(int i = 0; i < vsub[K]; i++)
+    nvsub[i] = vsub[i];
+  nvsub[K] = vsub[K];
+  //printf("new depth: %d\n", nvsub[K]);
 
-  std::sort(vsub.begin(), vsub.end());
+  std::sort(vsub, vsub+vsub[K]);
 
   while (!vext.empty()) {
     size_t nx = vext.back();
@@ -50,20 +54,23 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
     for (auto ii = graph.edge_begin(nx, Galois::MethodFlag::NONE),
            ee = graph.edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii) {
       size_t dst = graph.idFromNode(graph.getEdgeDst(ii));
-      if (graph.idFromNode(dst) <= graph.idFromNode(nvsub[0]) || std::binary_search(vsub.begin(), vsub.end(), dst))
+      if (graph.idFromNode(dst) <= graph.idFromNode(nvsub[0]) || std::binary_search(vsub, vsub+vsub[K], dst))
         continue;
 
       int fl = 0;
       for (auto ii2 = graph.edge_begin(dst, Galois::MethodFlag::NONE),
            ee2 = graph.edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
-        if (std::binary_search(vsub.begin(), vsub.end(), graph.idFromNode(graph.getEdgeDst(ii2)))) {
+        if (std::binary_search(vsub, vsub+vsub[K], graph.idFromNode(graph.getEdgeDst(ii2)))) {
           fl = 1;
           break;
         }
 
+      if (fl)
+        continue;
+
       for (auto ii2 = graph.in_edge_begin(dst, Galois::MethodFlag::NONE),
            ee2 = graph.in_edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
-        if (std::binary_search(vsub.begin(), vsub.end(), graph.idFromNode(graph.getInEdgeDst(ii2)))) {
+        if (std::binary_search(vsub, vsub+vsub[K], graph.idFromNode(graph.getInEdgeDst(ii2)))) {
           fl = 1;
           break;
         }
@@ -82,24 +89,26 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
       if (std::find(vext.begin(), vext.end(), dst) != vext.end())
         continue;
 
-      if (graph.idFromNode(dst) <= graph.idFromNode(nvsub[0]) || std::binary_search(vsub.begin(), vsub.end(), dst))
+      if (graph.idFromNode(dst) <= graph.idFromNode(nvsub[0]) || std::binary_search(vsub, vsub+vsub[K], dst))
         continue;
 
       int fl = 0;
       for (auto ii2 = graph.edge_begin(dst, Galois::MethodFlag::NONE),
            ee2 = graph.edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
-        if (std::binary_search(vsub.begin(), vsub.end(), graph.idFromNode(graph.getEdgeDst(ii2)))) {
+        if (std::binary_search(vsub, vsub+vsub[K], graph.idFromNode(graph.getEdgeDst(ii2)))) {
           fl = 1;
           break;
         }
+
+      if (fl)
+        continue;
 
       for (auto ii2 = graph.in_edge_begin(dst, Galois::MethodFlag::NONE),
            ee2 = graph.in_edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
-        if (std::binary_search(vsub.begin(), vsub.end(), graph.idFromNode(graph.getInEdgeDst(ii2)))) {
+        if (std::binary_search(vsub, vsub+vsub[K], graph.idFromNode(graph.getInEdgeDst(ii2)))) {
           fl = 1;
           break;
         }
-
 
       if (fl)
         continue;
@@ -108,10 +117,10 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
       vext.push_back(dst);
     }
 
-    if (1 + vsub.size() >= 3) {
-      int st = vsub.size() * (vsub.size() - 1) / 2 - 1;
+    if (1 + vsub[K] >= 3) {
+      int st = vsub[K] * (vsub[K] - 1) / 2 - 1;
 
-      for (int i = 0; i < (int)nvsub.size(); i++) {
+      for (int i = 0; i < (int)nvsub[K]; i++) {
         size_t dst = nvsub[i];
 
         for (auto ii = graph.edge_begin(nx, Galois::MethodFlag::NONE),
@@ -126,13 +135,18 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
       }
     }
 
-    nvsub.push_back(nx);
+    nvsub[nvsub[K]] = nx;
+    nvsub[K]++;
 
-    if (nvsub.size() >= K - 1 /*|| vext.size() < graph.size() / 80*/)
+    //printf("newer depth: %d\n", nvsub[K]);
+
+    //if (nvsub[K] >= K - 1 /*|| vext.size() < graph.size() / 80*/)
       expand(nvsub, vext, label, ctx);
-    else
-      ctx.push(WNode(LPair(nvsub, vext), label));
-    nvsub.pop_back();
+    //else
+      //ctx.push(WNode(LPair(nvsub, vext), label));
+    nvsub[K]--;
+
+    //printf("HERE\n");
 
     while (added) {
       added--;
@@ -143,24 +157,6 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
 
 struct FaSE {
   void operator()(WNode& req, Galois::UserContext<WNode>& ctx) const {
-    if(req.first.first.size() == 1){
-        for (auto ii = graph.edge_begin(req.first.first[0]), ee = graph.edge_end(req.first.first[0]); ii != ee; ++ii) {
-          size_t dst = graph.idFromNode(graph.getEdgeDst(ii));
-          if (graph.idFromNode(dst) <= graph.idFromNode(req.first.first[0]))
-            continue;
-
-          req.first.second.push_back(dst);
-        }
-
-        for (auto ii = graph.in_edge_begin(req.first.first[0]), ee = graph.in_edge_end(req.first.first[0]); ii != ee; ++ii) {
-          size_t dst = graph.idFromNode(graph.getInEdgeDst(ii));
-          if (graph.idFromNode(dst) <= graph.idFromNode(req.first.first[0]) ||
-                  std::find(req.first.second.begin(), req.first.second.end(), dst) != req.first.second.end())
-            continue;
-
-          req.first.second.push_back(dst);
-        }
-    }
     expand(req.first.first, req.first.second, req.second, ctx);
   }
 };
@@ -235,8 +231,25 @@ int main(int argc, char **argv) {
     graph.getData(v) = lb++;
 
   for (auto v : graph) {
-    list vsub, vext;
-    vsub.push_back(graph.idFromNode(v));
+    list vext;
+    int vsub[K+1];
+    vsub[K] = 1;
+    vsub[0] = graph.idFromNode(v);
+    for (auto ii = graph.edge_begin(v), ee = graph.edge_end(v); ii != ee; ++ii) {
+      size_t dst = graph.idFromNode(graph.getEdgeDst(ii));
+      if (graph.idFromNode(dst) <= graph.idFromNode(v))
+        continue;
+
+      vext.push_back(dst);
+    }
+
+    for (auto ii = graph.in_edge_begin(v), ee = graph.in_edge_end(v); ii != ee; ++ii) {
+      size_t dst = graph.idFromNode(graph.getInEdgeDst(ii));
+      if (graph.idFromNode(dst) <= graph.idFromNode(v) || std::find(vext.begin(), vext.end(), dst) != vext.end())
+        continue;
+
+      vext.push_back(dst);
+    }
 
     Galois::for_each(WNode(LPair(vsub, vext), 0LL), FaSE(), Galois::wl<dChunk>());
   }
