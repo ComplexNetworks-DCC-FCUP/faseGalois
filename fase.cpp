@@ -190,6 +190,7 @@ struct FaSE {
         req.first.first.push_back(dst);
       }
     }
+
     expand(req.first.first, req.first.second, req.second, ctx);
   }
 };
@@ -263,12 +264,16 @@ int main(int argc, char **argv) {
   for (auto v : graph)
     graph.getData(v) = lb++;
 
+
+  std::vector<WNode> initialWork;
   for (auto v : graph) {
     list vsub, vext;
     vsub.push_back(graph.idFromNode(v));
 
-    Galois::for_each(WNode(LPair(vsub, vext), 0LL), FaSE(), Galois::wl<dChunk>());
+    initialWork.push_back(WNode(LPair(vsub, vext), 0LL));
   }
+
+  Galois::for_each(initialWork.begin(), initialWork.end(), FaSE(), Galois::wl<dChunk>());
 
   std::unordered_map<long long int, int> isoIt = isoCount.reduce();
   Galois::do_all(isoIt.begin(), isoIt.end(), getSubgraphFrequencies);
