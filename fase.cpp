@@ -165,20 +165,7 @@ void prepareAndCallSerial(WNode nd) {
   size_t* vextSz = *perThreadVextSz.getLocal();
   size_t** vext = *perThreadVext.getLocal();;
 
-  if (vsub == NULL)
-    vsub = new size_t[K];
-
-  if (vextSz == NULL)
-    vextSz = new size_t[K];
-
-  if (vext == NULL) {
-    vext = new size_t*[K];
-
-    for (int i = 0; i < K; i++)
-      vext[i] = new size_t[graph.size() + 1];
-  }
-
-  if(nd.first.first.size() == 1){
+  if(nd.first.first.size() == 1) {
     for (auto ii = graph.edge_begin(nd.first.first[0]), ee = graph.edge_end(nd.first.first[0]); ii != ee; ++ii) {
       size_t dst = graph.idFromNode(graph.getEdgeDst(ii));
       if (graph.idFromNode(dst) <= graph.idFromNode(nd.first.first[0]))
@@ -409,6 +396,31 @@ void getSubgraphFrequencies(std::pair<long long int, int> element) {
   iso->finishNauty();
 }
 
+struct InitializeLocal {
+  void operator()(unsigned, unsigned) {
+    size_t* a = new size_t[K];
+    *perThreadVsub.getLocal() = a;
+
+    size_t* b = new size_t[K];
+    *perThreadVextSz.getLocal() = b;
+
+    size_t** c = new size_t*[K];
+    for (int i = 0; i < K; i++)
+      c[i] = new size_t[graph.size() + 1];
+
+    *perThreadVext.getLocal() = c;
+  }
+};
+ 
+struct DeleteLocal {
+  void operator()(unsigned, unsigned) {
+    delete [] *perThreadVsub.getLocal();
+    delete [] *perThreadVextSz.getLocal();
+    for (int i = 0; i < K; i++)
+      delete [] (*perThreadVext.getLocal())[i];
+  }
+};
+
 int main(int argc, char **argv) {
   Galois::StatManager statManager;
   LonestarStart(argc, argv, 0,0,0);
@@ -421,6 +433,7 @@ int main(int argc, char **argv) {
   T.start();
 
   std::vector<WNode> initialWork;
+  Galois::on_each(InitializeLocal());
 
   for (auto v : graph) {
     list lvsub, lvext;
@@ -448,6 +461,8 @@ int main(int argc, char **argv) {
   for(auto kv : freqsReduced)
     tot += kv.second;
   printf("Total subgraphs: %d\n", tot);
+
+  Galois::on_each(DeleteLocal());
 
   T.stop();
 
