@@ -335,7 +335,7 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
 
     nvsub.push_back(nx);
 
-    if (vsub.size() >= K - 2 && vext.size() % 2)
+    if (vsub.size() >= K - 2 || vext.size() % 2)
       prepareAndCallSerial(WNode(LPair(nvsub, vext), label));
     else
       ctx.push(WNode(LPair(nvsub, vext), label));
@@ -415,7 +415,7 @@ int main(int argc, char **argv) {
   Galois::Graph::readGraph(graph, filename, transposeGraphName);
 
   using namespace Galois::WorkList;
-  typedef ChunkedLIFO<16> dChunk;
+  typedef ChunkedLIFO<10> dChunk;
 
   Galois::StatTimer T;
   T.start();
