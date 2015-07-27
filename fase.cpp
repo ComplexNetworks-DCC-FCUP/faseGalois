@@ -27,13 +27,12 @@ namespace cll = llvm::cl;
 static cll::opt<std::string> filename(cll::Positional, cll::desc("<input file>"), cll::Required);
 static cll::opt<std::string> transposeGraphName(cll::Positional, cll::desc("<transpose file>"), cll::Required);
 static cll::opt<int> K(cll::Positional, cll::desc("<subgraph size>"), cll::Required);
+static cll::opt<bool> printTypes("pr", cll::desc("Print occurrences by type"), cll::init(false));
+static cll::opt<bool> runSequential("sequential", cll::desc("Run sequential code"), cll::init(false));
 
 Galois::Runtime::PerThreadStorage<size_t*> perThreadVsub;
 Galois::Runtime::PerThreadStorage<size_t*> perThreadVextSz;
 Galois::Runtime::PerThreadStorage<size_t**> perThreadVext;
-//size_t *vsub;
-//size_t *vextSz;
-//size_t **vext;
 
 void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, size_t **vext) {
   if (lk == K - 1) {
@@ -309,7 +308,6 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
           break;
         }
 
-
       if (fl)
         continue;
 
@@ -337,10 +335,10 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
 
     nvsub.push_back(nx);
 
-    if (vsub.size() < K - 1 || vext.size() % 2)
-      ctx.push(WNode(LPair(nvsub, vext), label));
-    else
+    if (vsub.size() >= K - 2 && vext.size() % 2)
       prepareAndCallSerial(WNode(LPair(nvsub, vext), label));
+    else
+      ctx.push(WNode(LPair(nvsub, vext), label));
 
     nvsub.pop_back();
 
@@ -401,13 +399,6 @@ void getSubgraphFrequencies(std::pair<long long int, int> element) {
     }
   }
 
-  /*printf("Matrix: ");for(int i = 0; i < K; i++){
-    for(int j = 0; j < K; j++){
-    printf("%c", s[i*K + j]);
-    }
-    printf("|");
-    }*/
-
   // Compute Canonical Types
   char nauty_s[K * K + 1];
   nauty_s[0] = '\0';
@@ -415,14 +406,6 @@ void getSubgraphFrequencies(std::pair<long long int, int> element) {
   std::string str = std::string(nauty_s);
   freqs.update(str, element.second);
 
-  /*printf("==> Type: : ");
-    for(int i = 0; i < K; i++){
-    for(int j = 0; j < K; j++){
-    printf("%c", nauty_s[i*K + j]);
-    }
-    printf("|");
-    }
-    printf("\n");*/
   iso->finishNauty();
 }
 
@@ -430,8 +413,6 @@ int main(int argc, char **argv) {
   Galois::StatManager statManager;
   LonestarStart(argc, argv, 0,0,0);
   Galois::Graph::readGraph(graph, filename, transposeGraphName);
-
-  int parallel = 1;
 
   using namespace Galois::WorkList;
   typedef ChunkedLIFO<16> dChunk;
@@ -445,13 +426,13 @@ int main(int argc, char **argv) {
     list lvsub, lvext;
     lvsub.push_back(graph.idFromNode(v));
 
-    if (parallel)
+    if (!runSequential)
       initialWork.push_back(WNode(LPair(lvsub, lvext), 0LL));
     else
       prepareAndCallSerial(WNode(LPair(lvsub, lvext), 0LL));
   }
 
-  if (parallel)
+  if (!runSequential)
     Galois::for_each(initialWork.begin(), initialWork.end(), FaSE(), Galois::wl<dChunk>());
 
   std::unordered_map<long long int, int> isoIt = isoCount.reduce();
@@ -459,8 +440,9 @@ int main(int argc, char **argv) {
 
   std::unordered_map<std::string, int> freqsReduced = freqs.reduce();
 
-//  for(auto kv : freqsReduced)
-//    printf("%s has %d occurrences\n",(kv.first).c_str(), kv.second);
+  if (printTypes)
+    for(auto kv : freqsReduced)
+      printf("%s has %d occurrences\n",(kv.first).c_str(), kv.second);
 
   int tot = 0;
   for(auto kv : freqsReduced)
