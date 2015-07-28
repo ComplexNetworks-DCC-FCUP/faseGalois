@@ -156,8 +156,8 @@ void prepareAndCallSerial(WNode nd, Galois::UserContext<WNode>& ctx) {
   size_t*  vextSz = *perThreadVextSz.getLocal();
   size_t** vext   = *perThreadVext.getLocal();
 
-  list vsubReq = &nd.first.first;
-  list vextReq = &nd.first.second;
+  list vsubReq = nd.first.first;
+  list vextReq = nd.first.second;
   long long int label = nd.second;
 
   for (int i = 0; i < vsubReq.size(); i++)
