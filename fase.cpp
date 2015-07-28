@@ -46,9 +46,9 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
       for (int i = 0; i < lk; i++) {
         size_t dst = vsub[i];
 
-        for (auto ii = graph.edge_begin(nx, Galois::MethodFlag::NONE),
-               ee = graph.edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
-          if (graph.idFromNode(graph.getEdgeDst(ii)) == dst)
+        if(std::binary_search(graph.edge_begin(nx, Galois::MethodFlag::NONE),
+                           graph.edge_end(nx, Galois::MethodFlag::NONE),
+                           graph.nodeFromId(dst)))
             label |= (1LL << (st + i));
 
         for (auto ii = graph.in_edge_begin(nx, Galois::MethodFlag::NONE),
@@ -143,9 +143,9 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
       for (int i = 0; i < (int)lk; i++) {
         size_t dst = vsub[i];
 
-        for (auto ii = graph.edge_begin(nx, Galois::MethodFlag::NONE),
-               ee = graph.edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
-          if (graph.idFromNode(graph.getEdgeDst(ii)) == dst)
+        if(std::binary_search(graph.edge_begin(nx, Galois::MethodFlag::NONE),
+                           graph.edge_end(nx, Galois::MethodFlag::NONE),
+                           graph.nodeFromId(dst)))
             label |= (1LL << (st + i));
 
         for (auto ii = graph.in_edge_begin(nx, Galois::MethodFlag::NONE),
@@ -459,8 +459,8 @@ int main(int argc, char **argv) {
 
   std::unordered_map<std::string, int> freqsReduced = freqs.reduce();
 
-//  for(auto kv : freqsReduced)
-//    printf("%s has %d occurrences\n",(kv.first).c_str(), kv.second);
+  for(auto kv : freqsReduced)
+    printf("%s has %d occurrences\n",(kv.first).c_str(), kv.second);
 
   int tot = 0;
   for(auto kv : freqsReduced)
