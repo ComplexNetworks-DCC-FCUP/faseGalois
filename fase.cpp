@@ -337,7 +337,7 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
 
     nvsub.push_back(nx);
 
-    if (1)
+    if (vsub.size() < K - 1 || vext.size() % 2)
       ctx.push(WNode(LPair(nvsub, vext), label));
     else
       prepareAndCallSerial(WNode(LPair(nvsub, vext), label));
@@ -434,7 +434,7 @@ int main(int argc, char **argv) {
   int parallel = 1;
 
   using namespace Galois::WorkList;
-  typedef ChunkedLIFO<16> dChunk;
+  typedef ChunkedLIFO<12> dChunk;
 
   Galois::StatTimer T;
   T.start();
@@ -459,8 +459,8 @@ int main(int argc, char **argv) {
 
   std::unordered_map<std::string, int> freqsReduced = freqs.reduce();
 
-  for(auto kv : freqsReduced)
-    printf("%s has %d occurrences\n",(kv.first).c_str(), kv.second);
+//  for(auto kv : freqsReduced)
+//    printf("%s has %d occurrences\n",(kv.first).c_str(), kv.second);
 
   int tot = 0;
   for(auto kv : freqsReduced)
