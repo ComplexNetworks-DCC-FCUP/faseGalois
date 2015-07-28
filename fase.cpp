@@ -34,27 +34,62 @@ Galois::Runtime::PerThreadStorage<size_t*> perThreadVsub;
 Galois::Runtime::PerThreadStorage<size_t*> perThreadVextSz;
 Galois::Runtime::PerThreadStorage<size_t**> perThreadVext;
 
+long long int updateLabel(size_t* vsub, int lk, size_t nx, long long int clabel){
+  long long int label = clabel;
+
+  if (1 + lk >= 3) {
+    int st = lk * (lk - 1) / 2 - 1;
+
+    for (int i = 0; i < (int)lk; i++) {
+      size_t dst = vsub[i];
+
+      if(std::binary_search(graph.edge_begin(nx, Galois::MethodFlag::NONE),
+                         graph.edge_end(nx, Galois::MethodFlag::NONE),
+                         graph.nodeFromId(dst)))
+          label |= (1LL << (st + i));
+
+      for (auto ii = graph.in_edge_begin(nx, Galois::MethodFlag::NONE),
+             ee = graph.in_edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
+        if (graph.idFromNode(graph.getInEdgeDst(ii)) == dst)
+          label |= (1LL << (st + i));
+    }
+  }
+  return label;
+}
+
+bool alreadyInMotif(size_t* vsub, int lk, size_t dst){
+  bool fl = 0;
+
+  for (auto ii2 = graph.edge_begin(dst, Galois::MethodFlag::NONE),
+       ee2 = graph.edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
+    if (std::find(vsub, vsub + lk, graph.idFromNode(graph.getEdgeDst(ii2))) != vsub + lk) {
+      fl = 1;
+      break;
+    }
+
+  if (fl) return 1;
+
+  for (auto ii2 = graph.in_edge_begin(dst, Galois::MethodFlag::NONE),
+       ee2 = graph.in_edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
+    if (std::find(vsub, vsub + lk, graph.idFromNode(graph.getInEdgeDst(ii2))) != vsub + lk) {
+      fl = 1;
+      break;
+    }
+
+  if (fl) return 1;
+
+  return 0;
+}
+
 void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, size_t **vext) {
+  long long int label;
+  size_t nx;
+
   if (lk == K - 1) {
     while (vextSz[lk]) {
-      size_t nx = vext[lk][--vextSz[lk]];
-      long long int label = clabel;
+      nx = vext[lk][--vextSz[lk]];
 
-      int st = lk * (lk - 1) / 2 - 1;
-
-      for (int i = 0; i < lk; i++) {
-        size_t dst = vsub[i];
-
-        for (auto ii = graph.edge_begin(nx, Galois::MethodFlag::NONE),
-                         ee = graph.edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
-                    if (graph.idFromNode(graph.getEdgeDst(ii)) == dst)
-                      label |= (1LL << (st + i));
-
-        for (auto ii = graph.in_edge_begin(nx, Galois::MethodFlag::NONE),
-               ee = graph.in_edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
-          if (graph.idFromNode(graph.getInEdgeDst(ii)) == dst)
-            label |= (1LL << (st + i));
-      }
+      long long int label = updateLabel(&vsub[0], lk, nx, clabel);
 
       isoCount.update(label, 1);
     }
@@ -63,43 +98,24 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
   }
 
   while (vextSz[lk]) {
-    size_t nx = vext[lk][--vextSz[lk]];
+    nx = vext[lk][--vextSz[lk]];
 
     for (int i = 0; i < vextSz[lk]; i++)
       vext[lk + 1][i] = vext[lk][i];
     vextSz[lk + 1] = vextSz[lk];
 
-    long long int label = clabel;
-    int added = 0;
+    label = clabel;
 
     for (auto ii = graph.edge_begin(nx, Galois::MethodFlag::NONE),
            ee = graph.edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii) {
       size_t dst = graph.idFromNode(graph.getEdgeDst(ii));
-      if (graph.idFromNode(dst) <= graph.idFromNode(vsub[0]) || std::find(vsub, vsub + lk, dst) != vsub + lk)
+
+      if (graph.idFromNode(dst) <= graph.idFromNode(vsub[0]) ||
+              std::find(vsub, vsub + lk, dst) != vsub + lk)
         continue;
 
-      bool fl = 0;
-      for (auto ii2 = graph.edge_begin(dst, Galois::MethodFlag::NONE),
-           ee2 = graph.edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
-        if (std::find(vsub, vsub + lk, graph.idFromNode(graph.getEdgeDst(ii2))) != vsub + lk) {
-          fl = 1;
-          break;
-        }
-
-      if (fl)
-        continue;
-
-      for (auto ii2 = graph.in_edge_begin(dst, Galois::MethodFlag::NONE),
-           ee2 = graph.in_edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
-        if (std::find(vsub, vsub + lk, graph.idFromNode(graph.getInEdgeDst(ii2))) != vsub + lk) {
-          fl = 1;
-          break;
-        }
-
-      if (fl)
-        continue;
-
-      vext[lk + 1][vextSz[lk + 1]++] = dst;
+      if(!alreadyInMotif(vsub, lk, dst))
+        vext[lk + 1][vextSz[lk + 1]++] = dst;
     }
 
     for (auto ii = graph.in_edge_begin(nx, Galois::MethodFlag::NONE),
@@ -111,48 +127,11 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
               std::find(vext[lk], vext[lk] + vextSz[lk], dst) != vext[lk] + vextSz[lk])
         continue;
 
-      bool fl = 0;
-      for (auto ii2 = graph.edge_begin(dst, Galois::MethodFlag::NONE),
-           ee2 = graph.edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
-        if (std::find(vsub, vsub + lk, graph.idFromNode(graph.getEdgeDst(ii2))) != vsub + lk) {
-          fl = 1;
-          break;
-        }
-
-      if (fl)
-        continue;
-
-      for (auto ii2 = graph.in_edge_begin(dst, Galois::MethodFlag::NONE),
-           ee2 = graph.in_edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
-        if (std::find(vsub, vsub + lk, graph.idFromNode(graph.getInEdgeDst(ii2))) != vsub + lk) {
-          fl = 1;
-          break;
-        }
-
-
-      if (fl)
-        continue;
-
-      vext[lk + 1][vextSz[lk + 1]++] = dst;
+      if(!alreadyInMotif(vsub, lk, dst))
+        vext[lk + 1][vextSz[lk + 1]++] = dst;
     }
 
-    if (1 + lk >= 3) {
-      int st = lk * (lk - 1) / 2 - 1;
-
-      for (int i = 0; i < (int)lk; i++) {
-        size_t dst = vsub[i];
-
-        for (auto ii = graph.edge_begin(nx, Galois::MethodFlag::NONE),
-               ee = graph.edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
-          if (graph.idFromNode(graph.getEdgeDst(ii)) == dst)
-            label |= (1LL << (st + i));
-
-        for (auto ii = graph.in_edge_begin(nx, Galois::MethodFlag::NONE),
-               ee = graph.in_edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
-          if (graph.idFromNode(graph.getInEdgeDst(ii)) == dst)
-            label |= (1LL << (st + i));
-      }
-    }
+    label = updateLabel(vsub, lk, nx, clabel);
 
     vsub[lk] = nx;
 
@@ -161,64 +140,36 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
 }
 
 void prepareAndCallSerial(WNode nd) {
-  size_t* vsub = *perThreadVsub.getLocal();
-  size_t* vextSz = *perThreadVextSz.getLocal();
-  size_t** vext = *perThreadVext.getLocal();;
+  size_t*  vsub   = *perThreadVsub.getLocal();
+  size_t*  vextSz = *perThreadVextSz.getLocal();
+  size_t** vext   = *perThreadVext.getLocal();
 
-  if(nd.first.first.size() == 1) {
-    for (auto ii = graph.edge_begin(nd.first.first[0]), ee = graph.edge_end(nd.first.first[0]); ii != ee; ++ii) {
-      size_t dst = graph.idFromNode(graph.getEdgeDst(ii));
-      if (graph.idFromNode(dst) <= graph.idFromNode(nd.first.first[0]))
-        continue;
+  list vsubReq = nd.first.first;
+  list vextReq = nd.first.second;
+  long long int label = nd.second;
 
-      nd.first.second.push_back(dst);
-    }
-
-    for (auto ii = graph.in_edge_begin(nd.first.first[0]), ee = graph.in_edge_end(nd.first.first[0]); ii != ee; ++ii) {
-      size_t dst = graph.idFromNode(graph.getInEdgeDst(ii));
-      if (graph.idFromNode(dst) <= graph.idFromNode(nd.first.first[0]) ||
-          std::find(nd.first.second.begin(), nd.first.second.end(), dst) != nd.first.second.end())
-        continue;
-
-      nd.first.second.push_back(dst);
-    }
-  }
-
-  for (int i = 0; i < nd.first.first.size(); i++)
-    vsub[i] = nd.first.first[i];
+  for (int i = 0; i < vsubReq.size(); i++)
+    vsub[i] = vsubReq[i];
 
   memset(vextSz, 0, sizeof vextSz);
-  vextSz[nd.first.first.size()] = nd.first.second.size();
-  for (int i = 0; i < nd.first.second.size(); i++)
-    vext[nd.first.first.size()][i] = nd.first.second[i];
+  vextSz[vsubReq.size()] = vextReq.size();
+  for (int i = 0; i < vextReq.size(); i++)
+    vext[vsubReq.size()][i] = vextReq[i];
 
-  serialExpand(nd.first.first.size(), nd.second, vsub, vextSz, vext);
+  serialExpand(vsubReq.size(), label, vsub, vextSz, vext);
 }
 
 void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNode>& ctx) {
+  long long int label;
+  size_t nx;
+
   if (vsub.size() == K - 1) {
     while (!vext.empty()) {
-      size_t nx = vext.back();
+      nx = vext.back();
       vext.pop_back();
-      long long int label = clabel;
 
-      if (1 + vsub.size() >= 3) {
-        int st = vsub.size() * (vsub.size() - 1) / 2 - 1;
+      label = updateLabel(&vsub[0], vsub.size(), nx, clabel);
 
-        for (int i = 0; i < (int)vsub.size(); i++) {
-          size_t dst = vsub[i];
-
-          if(std::binary_search(graph.edge_begin(nx, Galois::MethodFlag::NONE),
-                             graph.edge_end(nx, Galois::MethodFlag::NONE),
-                             graph.nodeFromId(dst)))
-              label |= (1LL << (st + i));
-
-          for (auto ii = graph.in_edge_begin(nx, Galois::MethodFlag::NONE),
-                 ee = graph.in_edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
-            if (graph.idFromNode(graph.getInEdgeDst(ii)) == dst)
-              label |= (1LL << (st + i));
-        }
-      }
       isoCount.update(label, 1);
     }
     return;
@@ -231,10 +182,10 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
   std::sort(vsub.begin(), vsub.end());
 
   while (!vext.empty()) {
-    size_t nx = vext.back();
+    nx = vext.back();
     vext.pop_back();
 
-    long long int label = clabel;
+    label = clabel;
     int added = 0;
 
     for (auto ii = graph.edge_begin(nx, Galois::MethodFlag::NONE),
@@ -243,29 +194,10 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
       if (graph.idFromNode(dst) <= graph.idFromNode(nvsub[0]) || std::binary_search(vsub.begin(), vsub.end(), dst))
         continue;
 
-      bool fl = 0;
-      for (auto ii2 = graph.edge_begin(dst, Galois::MethodFlag::NONE),
-           ee2 = graph.edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
-        if (std::binary_search(vsub.begin(), vsub.end(), graph.idFromNode(graph.getEdgeDst(ii2)))) {
-          fl = 1;
-          break;
-        }
-
-      if (fl)
-        continue;
-
-      for (auto ii2 = graph.in_edge_begin(dst, Galois::MethodFlag::NONE),
-           ee2 = graph.in_edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
-        if (std::binary_search(vsub.begin(), vsub.end(), graph.idFromNode(graph.getInEdgeDst(ii2)))) {
-          fl = 1;
-          break;
-        }
-
-      if (fl)
-        continue;
-
-      added++;
-      vext.push_back(dst);
+      if(!alreadyInMotif(&vsub[0], vsub.size(), dst)){
+        added++;
+        vext.push_back(dst);
+      }
     }
 
     for (auto ii = graph.in_edge_begin(nx, Galois::MethodFlag::NONE),
@@ -277,56 +209,20 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
               std::find(vext.begin(), vext.end(), dst) != vext.end())
         continue;
 
-      bool fl = 0;
-      for (auto ii2 = graph.edge_begin(dst, Galois::MethodFlag::NONE),
-           ee2 = graph.edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
-        if (std::binary_search(vsub.begin(), vsub.end(), graph.idFromNode(graph.getEdgeDst(ii2)))) {
-          fl = 1;
-          break;
-        }
-
-      if (fl)
-        continue;
-
-      for (auto ii2 = graph.in_edge_begin(dst, Galois::MethodFlag::NONE),
-           ee2 = graph.in_edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
-        if (std::binary_search(vsub.begin(), vsub.end(), graph.idFromNode(graph.getInEdgeDst(ii2)))) {
-          fl = 1;
-          break;
-        }
-
-
-      if (fl)
-        continue;
-
-      added++;
-      vext.push_back(dst);
-    }
-
-    if (1 + vsub.size() >= 3) {
-      int st = vsub.size() * (vsub.size() - 1) / 2 - 1;
-
-      for (int i = 0; i < (int)nvsub.size(); i++) {
-        size_t dst = nvsub[i];
-
-        if(std::binary_search(graph.edge_begin(nx, Galois::MethodFlag::NONE),
-                           graph.edge_end(nx, Galois::MethodFlag::NONE),
-                           graph.nodeFromId(dst)))
-            label |= (1LL << (st + i));
-
-        for (auto ii = graph.in_edge_begin(nx, Galois::MethodFlag::NONE),
-               ee = graph.in_edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
-          if (graph.idFromNode(graph.getInEdgeDst(ii)) == dst)
-            label |= (1LL << (st + i));
+      if(!alreadyInMotif(&vsub[0], vsub.size(), dst)){
+        added++;
+        vext.push_back(dst);
       }
     }
 
+    label = updateLabel(&nvsub[0], nvsub.size(), nx, clabel);
+
     nvsub.push_back(nx);
 
-    //if (nvsub.size() >= K - 2 /*|| vext.size() < graph.size() / 80*/)
+    if (nvsub.size() >= K - 2 /*|| vext.size() < graph.size() / 80*/)
       prepareAndCallSerial(WNode(LPair(nvsub, vext), label));
-    //else
-      //ctx.push(WNode(LPair(nvsub, vext), label));
+    else
+      ctx.push(WNode(LPair(nvsub, vext), label));
 
     nvsub.pop_back();
 
@@ -339,26 +235,30 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
 
 struct FaSE {
   void operator()(WNode& req, Galois::UserContext<WNode>& ctx) const {
-    if(req.first.first.size() == 1){
-      for (auto ii = graph.edge_begin(req.first.first[0]), ee = graph.edge_end(req.first.first[0]); ii != ee; ++ii) {
+    list vsub = req.first.first;
+    list vext = req.first.second;
+    long long int label = req.second;
+
+    if(vsub.size() == 1){
+      for (auto ii = graph.edge_begin(vsub[0]), ee = graph.edge_end(vsub[0]); ii != ee; ++ii) {
         size_t dst = graph.idFromNode(graph.getEdgeDst(ii));
-        if (graph.idFromNode(dst) <= graph.idFromNode(req.first.first[0]))
+        if (graph.idFromNode(dst) <= graph.idFromNode(vsub[0]))
           continue;
 
-        req.first.second.push_back(dst);
+        vext.push_back(dst);
       }
 
-      for (auto ii = graph.in_edge_begin(req.first.first[0]), ee = graph.in_edge_end(req.first.first[0]); ii != ee; ++ii) {
+      for (auto ii = graph.in_edge_begin(vsub[0]), ee = graph.in_edge_end(vsub[0]); ii != ee; ++ii) {
         size_t dst = graph.idFromNode(graph.getInEdgeDst(ii));
-        if (graph.idFromNode(dst) <= graph.idFromNode(req.first.first[0]) ||
-                std::find(req.first.second.begin(), req.first.second.end(), dst) != req.first.second.end())
+        if (graph.idFromNode(dst) <= graph.idFromNode(vsub[0]) ||
+                std::find(vext.begin(), vext.end(), dst) != vext.end())
           continue;
 
-        req.first.second.push_back(dst);
+        vext.push_back(dst);
       }
     }
 
-    expand(req.first.first, req.first.second, req.second, ctx);
+    expand(vsub, vext, label, ctx);
   }
 };
 
@@ -428,7 +328,7 @@ int main(int argc, char **argv) {
   Galois::Graph::readGraph(graph, filename, transposeGraphName);
 
   using namespace Galois::WorkList;
-  typedef ChunkedLIFO<16> dChunk;
+  typedef ChunkedLIFO<10> dChunk;
 
   Galois::StatTimer T;
   T.start();
