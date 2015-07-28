@@ -10,7 +10,7 @@
 #include <string>
 #include <unordered_map>
 
-typedef Galois::Graph::LC_CSR_Graph<void, void>
+typedef Galois::Graph::LC_CSR_Graph<int, void>
 ::with_no_lockable<true>::type
 ::with_numa_alloc<true>::type InnerGraph;
 typedef Galois::Graph::LC_InOut_Graph<InnerGraph> Graph;
@@ -45,10 +45,10 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
       for (int i = 0; i < lk; i++) {
         size_t dst = vsub[i];
 
-        if(std::binary_search(graph.edge_begin(nx, Galois::MethodFlag::NONE),
-                           graph.edge_end(nx, Galois::MethodFlag::NONE),
-                           graph.nodeFromId(dst)))
-            label |= (1LL << (st + i));
+        for (auto ii = graph.edge_begin(nx, Galois::MethodFlag::NONE),
+                         ee = graph.edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
+                    if (graph.idFromNode(graph.getEdgeDst(ii)) == dst)
+                      label |= (1LL << (st + i));
 
         for (auto ii = graph.in_edge_begin(nx, Galois::MethodFlag::NONE),
                ee = graph.in_edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
@@ -142,9 +142,9 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
       for (int i = 0; i < (int)lk; i++) {
         size_t dst = vsub[i];
 
-        if(std::binary_search(graph.edge_begin(nx, Galois::MethodFlag::NONE),
-                           graph.edge_end(nx, Galois::MethodFlag::NONE),
-                           graph.nodeFromId(dst)))
+        for (auto ii = graph.edge_begin(nx, Galois::MethodFlag::NONE),
+               ee = graph.edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
+          if (graph.idFromNode(graph.getEdgeDst(ii)) == dst)
             label |= (1LL << (st + i));
 
         for (auto ii = graph.in_edge_begin(nx, Galois::MethodFlag::NONE),
@@ -295,6 +295,7 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
           break;
         }
 
+
       if (fl)
         continue;
 
@@ -322,10 +323,10 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
 
     nvsub.push_back(nx);
 
-    if (vsub.size() >= K - 2 || vext.size() % 2)
+    //if (nvsub.size() >= K - 2 /*|| vext.size() < graph.size() / 80*/)
       prepareAndCallSerial(WNode(LPair(nvsub, vext), label));
-    else
-      ctx.push(WNode(LPair(nvsub, vext), label));
+    //else
+      //ctx.push(WNode(LPair(nvsub, vext), label));
 
     nvsub.pop_back();
 
@@ -411,7 +412,7 @@ struct InitializeLocal {
     *perThreadVext.getLocal() = c;
   }
 };
- 
+
 struct DeleteLocal {
   void operator()(unsigned, unsigned) {
     delete [] *perThreadVsub.getLocal();
@@ -427,7 +428,7 @@ int main(int argc, char **argv) {
   Galois::Graph::readGraph(graph, filename, transposeGraphName);
 
   using namespace Galois::WorkList;
-  typedef ChunkedLIFO<10> dChunk;
+  typedef ChunkedLIFO<16> dChunk;
 
   Galois::StatTimer T;
   T.start();
