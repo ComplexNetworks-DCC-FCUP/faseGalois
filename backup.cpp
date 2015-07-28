@@ -41,14 +41,14 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
         for (int i = 0; i < (int)vsub.size(); i++) {
           size_t dst = vsub[i];
 
-          for (auto ii = graph.edge_begin(nx, Galois::MethodFlag::NONE),
-                 ee = graph.edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
-            if (graph.idFromNode(graph.getEdgeDst(ii)) == dst)
+          if(std::binary_search(graph.idFromNode(graph.getEdgeDst(graph.edge_begin(nx, Galois::MethodFlag::NONE))),
+                             graph.idFromNode(graph.getEdgeDst(graph.edge_end(nx, Galois::MethodFlag::NONE))),
+                             dst))
               label |= (1LL << (st + i));
 
-          for (auto ii = graph.in_edge_begin(nx, Galois::MethodFlag::NONE),
-                 ee = graph.in_edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
-            if (graph.idFromNode(graph.getInEdgeDst(ii)) == dst)
+          if(std::binary_search(graph.idFromNode(graph.getInEdgeDst(graph.in_edge_begin(nx, Galois::MethodFlag::NONE))),
+                             graph.idFromNode(graph.getInEdgeDst(graph.in_edge_end(nx, Galois::MethodFlag::NONE))),
+                             dst))
               label |= (1LL << (st + i));
         }
       }
@@ -143,14 +143,14 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
       for (int i = 0; i < (int)nvsub.size(); i++) {
         size_t dst = nvsub[i];
 
-        for (auto ii = graph.edge_begin(nx, Galois::MethodFlag::NONE),
-               ee = graph.edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
-          if (graph.idFromNode(graph.getEdgeDst(ii)) == dst)
+        if(std::binary_search(graph.idFromNode(graph.getEdgeDst(graph.edge_begin(nx, Galois::MethodFlag::NONE))),
+                           graph.idFromNode(graph.getEdgeDst(graph.edge_end(nx, Galois::MethodFlag::NONE))),
+                           dst))
             label |= (1LL << (st + i));
 
-        for (auto ii = graph.in_edge_begin(nx, Galois::MethodFlag::NONE),
-               ee = graph.in_edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
-          if (graph.idFromNode(graph.getInEdgeDst(ii)) == dst)
+        if(std::binary_search(graph.idFromNode(graph.getInEdgeDst(graph.in_edge_begin(nx, Galois::MethodFlag::NONE))),
+                           graph.idFromNode(graph.getInEdgeDst(graph.in_edge_end(nx, Galois::MethodFlag::NONE))),
+                           dst))
             label |= (1LL << (st + i));
       }
     }
