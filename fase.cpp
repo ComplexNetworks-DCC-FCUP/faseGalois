@@ -21,6 +21,7 @@ typedef std::pair<LPair, long long int> WNode;
 
 Galois::GMapElementAccumulator<std::unordered_map<std::string, int> > freqs;
 Galois::GMapElementAccumulator<std::unordered_map<long long int, int> > isoCount;
+Galois::GAccumulator<int> wlSize;
 Graph graph;
 
 namespace cll = llvm::cl;
@@ -81,7 +82,7 @@ bool alreadyInMotif(size_t* vsub, int lk, size_t dst){
   return 0;
 }
 
-void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, size_t **vext) {
+void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, size_t **vext, Galois::UserContext<WNode>& ctx) {
   long long int label;
   size_t nx;
 
@@ -135,17 +136,28 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
 
     vsub[lk] = nx;
 
-    serialExpand(lk + 1, label, vsub, vextSz, vext);
+    if (wlSize.unsafeRead() >= (numThreads - 1) * 10 || lk >= K - 2)
+      serialExpand(lk + 1, label, vsub, vextSz, vext, ctx);
+    else {
+      list lvsub, lvext;
+      for (int i = 0; i < vextSz[lk + 1]; i++)
+        lvext.push_back(vext[lk + 1][i]);
+
+      for (int i = 0; i < lk + 1; i++)
+        lvsub.push_back(vsub[i]);
+
+      ctx.push(WNode(LPair(lvsub, lvext), label));
+    }
   }
 }
 
-void prepareAndCallSerial(WNode nd) {
+void prepareAndCallSerial(WNode nd, Galois::UserContext<WNode>& ctx) {
   size_t*  vsub   = *perThreadVsub.getLocal();
   size_t*  vextSz = *perThreadVextSz.getLocal();
   size_t** vext   = *perThreadVext.getLocal();
 
-  list vsubReq = nd.first.first;
-  list vextReq = nd.first.second;
+  list vsubReq = &nd.first.first;
+  list vextReq = &nd.first.second;
   long long int label = nd.second;
 
   for (int i = 0; i < vsubReq.size(); i++)
@@ -156,10 +168,10 @@ void prepareAndCallSerial(WNode nd) {
   for (int i = 0; i < vextReq.size(); i++)
     vext[vsubReq.size()][i] = vextReq[i];
 
-  serialExpand(vsubReq.size(), label, vsub, vextSz, vext);
+  serialExpand(vsubReq.size(), label, vsub, vextSz, vext, ctx);
 }
 
-void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNode>& ctx) {
+/*void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNode>& ctx) {
   long long int label;
   size_t nx;
 
@@ -219,10 +231,12 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
 
     nvsub.push_back(nx);
 
-    if (nvsub.size() >= K - 2 /*|| vext.size() < graph.size() / 80*/)
+    if (wlSize.unsafeRead() > 1000 || nvsub.size() >= K - 2 /*|| vext.size() < graph.size() / 80/)
       prepareAndCallSerial(WNode(LPair(nvsub, vext), label));
-    else
+    else {
+      wlSize.update(1);
       ctx.push(WNode(LPair(nvsub, vext), label));
+    }
 
     nvsub.pop_back();
 
@@ -231,10 +245,12 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
       vext.pop_back();
     }
   }
-}
+}*/
 
 struct FaSE {
   void operator()(WNode& req, Galois::UserContext<WNode>& ctx) const {
+    wlSize.update(-1);
+
     list vsub = req.first.first;
     list vext = req.first.second;
     long long int label = req.second;
@@ -258,7 +274,8 @@ struct FaSE {
       }
     }
 
-    expand(vsub, vext, label, ctx);
+    prepareAndCallSerial(WNode(LPair(vsub, vext), label), ctx);
+//    expand(vsub, vext, label, ctx);
   }
 };
 
@@ -340,10 +357,12 @@ int main(int argc, char **argv) {
     list lvsub, lvext;
     lvsub.push_back(graph.idFromNode(v));
 
-    if (!runSequential)
+    if (!runSequential) {
       initialWork.push_back(WNode(LPair(lvsub, lvext), 0LL));
-    else
-      prepareAndCallSerial(WNode(LPair(lvsub, lvext), 0LL));
+      wlSize.update(1);
+    }
+//    else
+//      prepareAndCallSerial(WNode(LPair(lvsub, lvext), 0LL));
   }
 
   if (!runSequential)
