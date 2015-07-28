@@ -79,7 +79,7 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
       if (graph.idFromNode(dst) <= graph.idFromNode(vsub[0]) || std::find(vsub, vsub + lk, dst) != vsub + lk)
         continue;
 
-      int fl = 0;
+      bool fl = 0;
       for (auto ii2 = graph.edge_begin(dst, Galois::MethodFlag::NONE),
            ee2 = graph.edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
         if (std::find(vsub, vsub + lk, graph.idFromNode(graph.getEdgeDst(ii2))) != vsub + lk) {
@@ -107,13 +107,12 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
            ee = graph.in_edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii) {
       size_t dst = graph.idFromNode(graph.getInEdgeDst(ii));
 
-      if (std::find(vext[lk], vext[lk] + vextSz[lk], dst) != vext[lk] + vextSz[lk])
+      if (graph.idFromNode(dst) <= graph.idFromNode(vsub[0]) ||
+              std::find(vsub, vsub + lk, dst) != vsub + lk   ||
+              std::find(vext[lk], vext[lk] + vextSz[lk], dst) != vext[lk] + vextSz[lk])
         continue;
 
-      if (graph.idFromNode(dst) <= graph.idFromNode(vsub[0]) || std::find(vsub, vsub + lk, dst) != vsub + lk)
-        continue;
-
-      int fl = 0;
+      bool fl = 0;
       for (auto ii2 = graph.edge_begin(dst, Galois::MethodFlag::NONE),
            ee2 = graph.edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
         if (std::find(vsub, vsub + lk, graph.idFromNode(graph.getEdgeDst(ii2))) != vsub + lk) {
@@ -258,7 +257,7 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
       if (graph.idFromNode(dst) <= graph.idFromNode(nvsub[0]) || std::binary_search(vsub.begin(), vsub.end(), dst))
         continue;
 
-      int fl = 0;
+      bool fl = 0;
       for (auto ii2 = graph.edge_begin(dst, Galois::MethodFlag::NONE),
            ee2 = graph.edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
         if (std::binary_search(vsub.begin(), vsub.end(), graph.idFromNode(graph.getEdgeDst(ii2)))) {
@@ -287,13 +286,12 @@ void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNod
            ee = graph.in_edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii) {
       size_t dst = graph.idFromNode(graph.getInEdgeDst(ii));
 
-      if (std::find(vext.begin(), vext.end(), dst) != vext.end())
+      if (graph.idFromNode(dst) <= graph.idFromNode(nvsub[0])   ||
+              std::binary_search(vsub.begin(), vsub.end(), dst) ||
+              std::find(vext.begin(), vext.end(), dst) != vext.end())
         continue;
 
-      if (graph.idFromNode(dst) <= graph.idFromNode(nvsub[0]) || std::binary_search(vsub.begin(), vsub.end(), dst))
-        continue;
-
-      int fl = 0;
+      bool fl = 0;
       for (auto ii2 = graph.edge_begin(dst, Galois::MethodFlag::NONE),
            ee2 = graph.edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
         if (std::binary_search(vsub.begin(), vsub.end(), graph.idFromNode(graph.getEdgeDst(ii2)))) {
