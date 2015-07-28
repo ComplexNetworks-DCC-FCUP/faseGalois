@@ -255,17 +255,13 @@ int main(int argc, char **argv) {
   //std::vector<Graph::GraphNode> nodes = createGraph(n, m);
 
   using namespace Galois::WorkList;
-  typedef ChunkedLIFO<1> dChunk;
+  typedef ChunkedLIFO<16> dChunk;
 
   Galois::StatTimer T;
   T.start();
 
-  int lb = 0;
-  for (auto v : graph)
-    graph.getData(v) = lb++;
-
-
   std::vector<WNode> initialWork;
+
   for (auto v : graph) {
     list vsub, vext;
     vsub.push_back(graph.idFromNode(v));
