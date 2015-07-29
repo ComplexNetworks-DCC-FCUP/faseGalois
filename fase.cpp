@@ -38,7 +38,7 @@ static cll::opt<std::string> filename(cll::Positional, cll::desc("<input file>")
 static cll::opt<std::string> transposeGraphName(cll::Positional, cll::desc("<transpose file>"), cll::Required);
 static cll::opt<int> K(cll::Positional, cll::desc("<subgraph size>"), cll::Required);
 static cll::opt<bool> printTypes("pr", cll::desc("Print occurrences by type"), cll::init(false));
-static cll::opt<bool> runSequential("sequential", cll::desc("Run sequential code"), cll::init(false));
+static cll::opt<bool> directed("d", cll::desc("Directed"), cll::init(false));
 
 Galois::Runtime::PerThreadStorage<size_t*> perThreadVsub;
 Galois::Runtime::PerThreadStorage<size_t*> perThreadVextSz;
@@ -48,7 +48,7 @@ long long int updateLabel(size_t* vsub, int lk, size_t nx, long long int clabel)
   long long int label = clabel;
 
   if (1 + lk >= 3) {
-    int st = lk * (lk - 1) / 2 - 1;
+    int st = (lk * (lk - 1) / 2 - 1) * (directed + 1);
 
     for (int i = 0; i < (int)lk; i++) {
       size_t dst = vsub[i];
@@ -61,7 +61,7 @@ long long int updateLabel(size_t* vsub, int lk, size_t nx, long long int clabel)
       for (auto ii = graph.in_edge_begin(nx, Galois::MethodFlag::NONE),
              ee = graph.in_edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
         if (graph.idFromNode(graph.getInEdgeDst(ii)) == dst)
-          label |= (1LL << (st + i));
+          label |= (1LL << (st + i + (lk - 1) * directed));
     }
   }
   return label;
@@ -255,7 +255,7 @@ struct FaSE {
 
 void getSubgraphFrequencies(std::pair<long long int, int> element) {
   Isomorphism *iso = new Isomorphism();
-  iso->initNauty(K, false);
+  iso->initNauty(K, directed);
 
   char s[K * K + 1];
   for(int i = 0; i < K*K; i++) s[i] = '0';
@@ -331,16 +331,11 @@ int main(int argc, char **argv) {
     list lvsub, lvext;
     lvsub.push_back(graph.idFromNode(v));
 
-    if (!runSequential) {
-      initialWork.push_back(WNode(LPair(lvsub, lvext), 0LL));
-      wlSize.update(1);
-    }
-//    else
-//      prepareAndCallSerial(WNode(LPair(lvsub, lvext), 0LL));
+    initialWork.push_back(WNode(LPair(lvsub, lvext), 0LL));
+    wlSize.update(1);
   }
 
-  if (!runSequential)
-    Galois::for_each(initialWork.begin(), initialWork.end(), FaSE(), Galois::wl<dChunk>());
+  Galois::for_each(initialWork.begin(), initialWork.end(), FaSE(), Galois::wl<dChunk>());
 
   std::unordered_map<long long int, int> isoIt = isoCount.reduce();
   Galois::do_all(isoIt.begin(), isoIt.end(), getSubgraphFrequencies);
@@ -365,11 +360,13 @@ int main(int argc, char **argv) {
 
   int all = blAdds + blSeq + slAdds + slSeq;
 
+  if (directed)
+    printf("Directed graph\n");
   printf("-------------------------------------------\n");
-  printf("Adds to Big List:       %d (%.2f\%)\n", blAdds, (float)blAdds/(float)all * 100);
-  printf("Seq Runs to Big List:   %d (%.2f\%)\n", bigListSequential.reduce(), (float)blSeq/(float)all * 100);
-  printf("Adds to Small List:     %d (%.2f\%)\n", smallListAddWork.reduce(), (float)slAdds/(float)all * 100);
-  printf("Seq Runs on Small List: %d (%.2f\%)\n", smallListSequential.reduce(), (float)slSeq/(float)all * 100);
+  printf("Adds to Big List:       %d (%.2f%%)\n", blAdds, (float)blAdds/(float)all * 100);
+  printf("Seq Runs to Big List:   %d (%.2f%%)\n", bigListSequential.reduce(), (float)blSeq/(float)all * 100);
+  printf("Adds to Small List:     %d (%.2f%%)\n", smallListAddWork.reduce(), (float)slAdds/(float)all * 100);
+  printf("Seq Runs on Small List: %d (%.2f%%)\n", smallListSequential.reduce(), (float)slSeq/(float)all * 100);
   printf("-------------------------------------------\n");
 
   T.stop();
