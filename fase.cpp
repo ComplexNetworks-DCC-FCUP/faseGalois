@@ -19,10 +19,19 @@ typedef std::vector<size_t> list;
 typedef std::pair<list, list> LPair;
 typedef std::pair<LPair, long long int> WNode;
 
+const int chunkSize   = 10;
+bool bigIncrease      = true;
+const int bigSizeMult = 10;
+
 Galois::GMapElementAccumulator<std::unordered_map<std::string, int> > freqs;
 Galois::GMapElementAccumulator<std::unordered_map<long long int, int> > isoCount;
 Galois::GAccumulator<int> wlSize;
 Graph graph;
+
+Galois::GAccumulator<int> bigListAddWork;
+Galois::GAccumulator<int> bigListSequential;
+Galois::GAccumulator<int> smallListAddWork;
+Galois::GAccumulator<int> smallListSequential;
 
 namespace cll = llvm::cl;
 static cll::opt<std::string> filename(cll::Positional, cll::desc("<input file>"), cll::Required);
@@ -136,7 +145,7 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
 
     vsub[lk] = nx;
 
-    if (wlSize.unsafeRead() >= (numThreads - 1) * 10 || lk >= K - 2)
+    /*if (wlSize.unsafeRead() > numThreads * chunkSize || lk >= K - 2)
       serialExpand(lk + 1, label, vsub, vextSz, vext, ctx);
     else {
       list lvsub, lvext;
@@ -147,6 +156,47 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
         lvsub.push_back(vsub[i]);
 
       ctx.push(WNode(LPair(lvsub, lvext), label));
+    }*/
+
+    // Big Worklist Phase
+    if(bigIncrease){
+      if (wlSize.unsafeRead() >= (numThreads - 1) * chunkSize * bigSizeMult || lk >= K - 2){
+        bigListSequential.update(1);
+        serialExpand(lk + 1, label, vsub, vextSz, vext, ctx);
+
+        bigIncrease = false;
+      }
+      else {
+        bigListAddWork.update(1);
+        list lvsub, lvext;
+        for (int i = 0; i < vextSz[lk + 1]; i++)
+          lvext.push_back(vext[lk + 1][i]);
+
+        for (int i = 0; i < lk + 1; i++)
+          lvsub.push_back(vsub[i]);
+
+        ctx.push(WNode(LPair(lvsub, lvext), label));
+      }
+    }
+    // Small Worklist Phase
+    else{
+      if (wlSize.unsafeRead() >= numThreads * chunkSize || lk >= K - 2){
+        serialExpand(lk + 1, label, vsub, vextSz, vext, ctx);
+        smallListSequential.update(1);
+      }
+      else {
+        bigIncrease = true;
+        smallListAddWork.update(1);
+
+        list lvsub, lvext;
+        for (int i = 0; i < vextSz[lk + 1]; i++)
+          lvext.push_back(vext[lk + 1][i]);
+
+        for (int i = 0; i < lk + 1; i++)
+          lvsub.push_back(vsub[i]);
+
+        ctx.push(WNode(LPair(lvsub, lvext), label));
+      }
     }
   }
 }
@@ -170,82 +220,6 @@ void prepareAndCallSerial(WNode nd, Galois::UserContext<WNode>& ctx) {
 
   serialExpand(vsubReq.size(), label, vsub, vextSz, vext, ctx);
 }
-
-/*void expand(list vsub, list vext, long long int clabel, Galois::UserContext<WNode>& ctx) {
-  long long int label;
-  size_t nx;
-
-  if (vsub.size() == K - 1) {
-    while (!vext.empty()) {
-      nx = vext.back();
-      vext.pop_back();
-
-      label = updateLabel(&vsub[0], vsub.size(), nx, clabel);
-
-      isoCount.update(label, 1);
-    }
-    return;
-  }
-
-  list nvsub;
-  for (auto n : vsub)
-    nvsub.push_back(n);
-
-  std::sort(vsub.begin(), vsub.end());
-
-  while (!vext.empty()) {
-    nx = vext.back();
-    vext.pop_back();
-
-    label = clabel;
-    int added = 0;
-
-    for (auto ii = graph.edge_begin(nx, Galois::MethodFlag::NONE),
-           ee = graph.edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii) {
-      size_t dst = graph.idFromNode(graph.getEdgeDst(ii));
-      if (graph.idFromNode(dst) <= graph.idFromNode(nvsub[0]) || std::binary_search(vsub.begin(), vsub.end(), dst))
-        continue;
-
-      if(!alreadyInMotif(&vsub[0], vsub.size(), dst)){
-        added++;
-        vext.push_back(dst);
-      }
-    }
-
-    for (auto ii = graph.in_edge_begin(nx, Galois::MethodFlag::NONE),
-           ee = graph.in_edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii) {
-      size_t dst = graph.idFromNode(graph.getInEdgeDst(ii));
-
-      if (graph.idFromNode(dst) <= graph.idFromNode(nvsub[0])   ||
-              std::binary_search(vsub.begin(), vsub.end(), dst) ||
-              std::find(vext.begin(), vext.end(), dst) != vext.end())
-        continue;
-
-      if(!alreadyInMotif(&vsub[0], vsub.size(), dst)){
-        added++;
-        vext.push_back(dst);
-      }
-    }
-
-    label = updateLabel(&nvsub[0], nvsub.size(), nx, clabel);
-
-    nvsub.push_back(nx);
-
-    if (wlSize.unsafeRead() > 1000 || nvsub.size() >= K - 2 /*|| vext.size() < graph.size() / 80/)
-      prepareAndCallSerial(WNode(LPair(nvsub, vext), label));
-    else {
-      wlSize.update(1);
-      ctx.push(WNode(LPair(nvsub, vext), label));
-    }
-
-    nvsub.pop_back();
-
-    while (added) {
-      added--;
-      vext.pop_back();
-    }
-  }
-}*/
 
 struct FaSE {
   void operator()(WNode& req, Galois::UserContext<WNode>& ctx) const {
@@ -345,7 +319,7 @@ int main(int argc, char **argv) {
   Galois::Graph::readGraph(graph, filename, transposeGraphName);
 
   using namespace Galois::WorkList;
-  typedef ChunkedLIFO<10> dChunk;
+  typedef ChunkedLIFO<chunkSize> dChunk;
 
   Galois::StatTimer T;
   T.start();
@@ -383,6 +357,20 @@ int main(int argc, char **argv) {
   printf("Total subgraphs: %d\n", tot);
 
   Galois::on_each(DeleteLocal());
+
+  int blAdds = bigListAddWork.reduce();
+  int blSeq  = bigListSequential.reduce();
+  int slAdds = smallListAddWork.reduce();
+  int slSeq  = smallListSequential.reduce();
+
+  int all = blAdds + blSeq + slAdds + slSeq;
+
+  printf("-------------------------------------------\n");
+  printf("Adds to Big List:       %d (%.2f\%)\n", blAdds, (float)blAdds/(float)all * 100);
+  printf("Seq Runs to Big List:   %d (%.2f\%)\n", bigListSequential.reduce(), (float)blSeq/(float)all * 100);
+  printf("Adds to Small List:     %d (%.2f\%)\n", smallListAddWork.reduce(), (float)slAdds/(float)all * 100);
+  printf("Seq Runs on Small List: %d (%.2f\%)\n", smallListSequential.reduce(), (float)slSeq/(float)all * 100);
+  printf("-------------------------------------------\n");
 
   T.stop();
 
