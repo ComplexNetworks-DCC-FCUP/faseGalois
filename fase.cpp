@@ -47,7 +47,7 @@ Galois::Runtime::PerThreadStorage<size_t**> perThreadVext;
 long long int updateLabel(size_t* vsub, int lk, size_t nx, long long int clabel){
   long long int label = clabel;
 
-  if (1 + lk >= 3) {
+  if (1 + lk >= 3 || (1 + lk >= 2 && directed)) {
     int st = (lk * (lk - 1) / 2 - 1) * (directed + 1);
 
     for (int i = 0; i < (int)lk; i++) {
@@ -56,7 +56,7 @@ long long int updateLabel(size_t* vsub, int lk, size_t nx, long long int clabel)
       for (auto ii = graph.edge_begin(nx, Galois::MethodFlag::NONE),
              ee = graph.edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
         if (graph.idFromNode(graph.getEdgeDst(ii)) == dst)
-          label |= (1LL << (st + i + (lk - 1) * directed));
+          label |= (1LL << (st + i));
 
       for (auto ii = graph.in_edge_begin(nx, Galois::MethodFlag::NONE),
              ee = graph.in_edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
