@@ -48,7 +48,10 @@ long long int updateLabel(size_t* vsub, int lk, size_t nx, long long int clabel)
   long long int label = clabel;
 
   if (1 + lk >= 3 || (1 + lk >= 2 && directed)) {
-    int st = (lk * (lk - 1) / 2 - 1) * (directed + 1);
+    int st = (lk * (lk - 1) / 2 - 1);
+
+    if (directed)
+      st = lk * (lk - 1);
 
     for (int i = 0; i < (int)lk; i++) {
       size_t dst = vsub[i];
@@ -61,7 +64,7 @@ long long int updateLabel(size_t* vsub, int lk, size_t nx, long long int clabel)
       for (auto ii = graph.in_edge_begin(nx, Galois::MethodFlag::NONE),
              ee = graph.in_edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
         if (graph.idFromNode(graph.getInEdgeDst(ii)) == dst)
-          label |= (1LL << (st + i + (lk - 1) * directed));
+          label |= (1LL << (st + i + lk * directed));
     }
   }
   return label;
@@ -344,6 +347,10 @@ int main(int argc, char **argv) {
   Galois::for_each(initialWork.begin(), initialWork.end(), FaSE(), Galois::wl<dChunk>());
 
   std::unordered_map<long long int, int> isoIt = isoCount.reduce();
+
+  for(auto kv : isoIt)
+    printf("%lld has %d occurrences\n",(kv.first), kv.second);
+
   Galois::do_all(isoIt.begin(), isoIt.end(), getSubgraphFrequencies);
 
   std::unordered_map<std::string, int> freqsReduced = freqs.reduce();
