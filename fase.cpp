@@ -19,9 +19,10 @@ typedef std::vector<size_t> list;
 typedef std::pair<list, list> LPair;
 typedef std::pair<LPair, long long int> WNode;
 
-const int chunkSize   = 10;
+const int chunkSize   = 2;
 bool bigIncrease      = true;
-const int bigSizeMult = 10;
+const int bigSizeMult = 7;
+const int smallSizeMult = 2;
 
 Galois::GMapElementAccumulator<std::unordered_map<std::string, int> > freqs;
 Galois::GMapElementAccumulator<std::unordered_map<long long int, int> > isoCount;
@@ -110,6 +111,8 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
     return;
   }
 
+  int estimateSize = wlSize.unsafeRead(), iter = 0;
+
   while (vextSz[lk]) {
     nx = vext[lk][--vextSz[lk]];
 
@@ -148,9 +151,12 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
 
     vsub[lk] = nx;
 
+    if (iter++ % ((numThreads - 1) * chunkSize * smallSizeMult) == 0)
+      estimateSize = wlSize.unsafeRead();
+
     // Big Worklist Phase
     if(bigIncrease){
-      if (wlSize.unsafeRead() >= (numThreads - 1) * chunkSize * bigSizeMult || lk >= K - 2){
+      if (estimateSize >= (numThreads - 1) * chunkSize * bigSizeMult || lk >= K - 2){
         bigListSequential.update(1);
         serialExpand(lk + 1, label, vsub, vextSz, vext, ctx);
 
@@ -165,12 +171,14 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
         for (int i = 0; i < lk + 1; i++)
           lvsub.push_back(vsub[i]);
 
+        estimateSize++;
+        wlSize.update(1);
         ctx.push(WNode(LPair(lvsub, lvext), label));
       }
     }
     // Small Worklist Phase
     else{
-      if (wlSize.unsafeRead() >= (numThreads - 1) * chunkSize || lk >= K - 2){
+      if (estimateSize >= (numThreads - 1) * chunkSize * smallSizeMult || lk >= K - 2){
         serialExpand(lk + 1, label, vsub, vextSz, vext, ctx);
         smallListSequential.update(1);
       }
@@ -185,6 +193,8 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
         for (int i = 0; i < lk + 1; i++)
           lvsub.push_back(vsub[i]);
 
+        estimateSize++;
+        wlSize.update(1);
         ctx.push(WNode(LPair(lvsub, lvext), label));
       }
     }
