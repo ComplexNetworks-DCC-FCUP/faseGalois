@@ -59,12 +59,12 @@ long long int updateLabel(size_t* vsub, int lk, size_t nx, long long int clabel)
       for (auto ii = graph.edge_begin(nx, Galois::MethodFlag::NONE),
              ee = graph.edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
         if (graph.idFromNode(graph.getEdgeDst(ii)) == dst)
-          label |= (1LL << (st + i));
+          label |= (1LL << (st + directed * 2 * i + (1 - directed) * i));
 
       for (auto ii = graph.in_edge_begin(nx, Galois::MethodFlag::NONE),
              ee = graph.in_edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
         if (graph.idFromNode(graph.getInEdgeDst(ii)) == dst)
-          label |= (1LL << (st + i + lk * directed));
+          label |= (1LL << (st + directed * (2 * (i + 1) - 1) + (1 - directed) * i));
     }
   }
   return label;
@@ -102,7 +102,7 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
     while (vextSz[lk]) {
       nx = vext[lk][--vextSz[lk]];
 
-      long long int label = updateLabel(&vsub[0], lk, nx, clabel);
+      label = updateLabel(&vsub[0], lk, nx, clabel);
 
       isoCount.update(label, 1);
     }
@@ -147,19 +147,6 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
     label = updateLabel(vsub, lk, nx, clabel);
 
     vsub[lk] = nx;
-
-    /*if (wlSize.unsafeRead() > numThreads * chunkSize || lk >= K - 2)
-      serialExpand(lk + 1, label, vsub, vextSz, vext, ctx);
-    else {
-      list lvsub, lvext;
-      for (int i = 0; i < vextSz[lk + 1]; i++)
-        lvext.push_back(vext[lk + 1][i]);
-
-      for (int i = 0; i < lk + 1; i++)
-        lvsub.push_back(vsub[i]);
-
-      ctx.push(WNode(LPair(lvsub, lvext), label));
-    }*/
 
     // Big Worklist Phase
     if(bigIncrease){
@@ -252,7 +239,6 @@ struct FaSE {
     }
 
     prepareAndCallSerial(WNode(LPair(vsub, vext), label), ctx);
-//    expand(vsub, vext, label, ctx);
   }
 };
 
@@ -263,6 +249,8 @@ void getSubgraphFrequencies(std::pair<long long int, int> element) {
   char s[K * K + 1];
   for(int i = 0; i < K*K; i++) s[i] = '0';
   s[K*K] = '\0';
+
+  int conn, connIn, connOut;
 
   // Rebuild Graph (Matrix) Representation
 
@@ -275,7 +263,7 @@ void getSubgraphFrequencies(std::pair<long long int, int> element) {
         if(nodex == K) break;
       }
 
-      int conn = element.first & (1LL << i) ? 1 : 0;
+      conn = element.first & (1LL << i) ? 1 : 0;
 
       if(conn){
         s[nodex*K + nodey] = '1';
@@ -284,7 +272,19 @@ void getSubgraphFrequencies(std::pair<long long int, int> element) {
     }
   }
   else{
+    for (int nodex = 1, nodey = 0, i = 0; ; nodey++, i+=2){
+      if(nodey == nodex) {
+        nodex++;
+        nodey = 0;
+        if(nodex == K) break;
+      }
 
+      connIn = element.first & (1LL << i) ? 1 : 0;
+      connOut = element.first & (1LL << (i+1)) ? 1 : 0;
+
+      if(connIn)  s[nodex*K + nodey] = '1';
+      if(connOut) s[nodey*K + nodex] = '1';
+    }
   }
 
   // Compute Canonical Types
@@ -348,9 +348,6 @@ int main(int argc, char **argv) {
 
   std::unordered_map<long long int, int> isoIt = isoCount.reduce();
 
-  for(auto kv : isoIt)
-    printf("%lld has %d occurrences\n",(kv.first), kv.second);
-
   Galois::do_all(isoIt.begin(), isoIt.end(), getSubgraphFrequencies);
 
   std::unordered_map<std::string, int> freqsReduced = freqs.reduce();
@@ -362,7 +359,10 @@ int main(int argc, char **argv) {
   int tot = 0;
   for(auto kv : freqsReduced)
     tot += kv.second;
-  printf("Total subgraphs: %d\n", tot);
+
+  printf("-------------------------------------------\n");
+  printf("Total subgraphs      : %d\n", tot);
+  printf("Total subgraph types : %d\n", (int)freqsReduced.size());
 
   Galois::on_each(DeleteLocal());
 
@@ -373,8 +373,6 @@ int main(int argc, char **argv) {
 
   int all = blAdds + blSeq + slAdds + slSeq;
 
-  if (directed)
-    printf("Directed graph\n");
   printf("-------------------------------------------\n");
   printf("Adds to Big List:       %d (%.2f%%)\n", blAdds, (float)blAdds/(float)all * 100);
   printf("Seq Runs to Big List:   %d (%.2f%%)\n", bigListSequential.reduce(), (float)blSeq/(float)all * 100);
