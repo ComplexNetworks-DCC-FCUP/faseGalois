@@ -53,10 +53,10 @@ long long int updateLabel(size_t* vsub, int lk, size_t nx, long long int clabel)
     for (int i = 0; i < (int)lk; i++) {
       size_t dst = vsub[i];
 
-      if(std::binary_search(graph.edge_begin(nx, Galois::MethodFlag::NONE),
-                         graph.edge_end(nx, Galois::MethodFlag::NONE),
-                         graph.nodeFromId(dst)))
-          label |= (1LL << (st + i));
+      for (auto ii = graph.edge_begin(nx, Galois::MethodFlag::NONE),
+             ee = graph.edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
+        if (graph.idFromNode(graph.getEdgeDst(ii)) == dst)
+          label |= (1LL << (st + i + (lk - 1) * directed));
 
       for (auto ii = graph.in_edge_begin(nx, Galois::MethodFlag::NONE),
              ee = graph.in_edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii)
@@ -262,20 +262,26 @@ void getSubgraphFrequencies(std::pair<long long int, int> element) {
   s[K*K] = '\0';
 
   // Rebuild Graph (Matrix) Representation
-  s[1] = '1'; s[1*K] = '1';
-  for (int nodex = 2, nodey = 0, i = 0; ; nodey++, i++){
-    if(nodey == nodex) {
-      nodex++;
-      nodey = 0;
-      if(nodex == K) break;
-    }
 
-    int conn = element.first & (1LL << i) ? 1 : 0;
+  if(!directed){
+    s[1] = '1'; s[1*K] = '1';
+    for (int nodex = 2, nodey = 0, i = 0; ; nodey++, i++){
+      if(nodey == nodex) {
+        nodex++;
+        nodey = 0;
+        if(nodex == K) break;
+      }
 
-    if(conn){
-      s[nodex*K + nodey] = '1';
-      s[nodey*K + nodex] = '1';
+      int conn = element.first & (1LL << i) ? 1 : 0;
+
+      if(conn){
+        s[nodex*K + nodey] = '1';
+        s[nodey*K + nodex] = '1';
+      }
     }
+  }
+  else{
+
   }
 
   // Compute Canonical Types
