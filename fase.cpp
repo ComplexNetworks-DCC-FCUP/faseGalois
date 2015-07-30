@@ -111,7 +111,7 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
     return;
   }
 
-  int estimateSize = wlSize.unsafeRead(), iter = 0;
+  int estimateSize = wlSize.unsafeRead(), localUpdates = 0, iter = 0;
 
   while (vextSz[lk]) {
     nx = vext[lk][--vextSz[lk]];
@@ -151,12 +151,15 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
 
     vsub[lk] = nx;
 
-    if (iter++ % ((numThreads - 1) * chunkSize * smallSizeMult) == 0)
+    if (numThreads > 1 && iter++ % ((numThreads - 1) * chunkSize * smallSizeMult) == 0) {
+      wlSize.update(localUpdates);
+      localUpdates = 0;
       estimateSize = wlSize.unsafeRead();
+    }
 
     // Big Worklist Phase
     if(bigIncrease){
-      if (estimateSize >= (numThreads - 1) * chunkSize * bigSizeMult || lk >= K - 2){
+      if (estimateSize + localUpdates >= (numThreads - 1) * chunkSize * bigSizeMult || lk >= K - 2){
         bigListSequential.update(1);
         serialExpand(lk + 1, label, vsub, vextSz, vext, ctx);
 
@@ -171,14 +174,13 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
         for (int i = 0; i < lk + 1; i++)
           lvsub.push_back(vsub[i]);
 
-        estimateSize++;
-        wlSize.update(1);
+        localUpdates++;
         ctx.push(WNode(LPair(lvsub, lvext), label));
       }
     }
     // Small Worklist Phase
     else{
-      if (estimateSize >= (numThreads - 1) * chunkSize * smallSizeMult || lk >= K - 2){
+      if (estimateSize + localUpdates >= (numThreads - 1) * chunkSize * smallSizeMult || lk >= K - 2){
         serialExpand(lk + 1, label, vsub, vextSz, vext, ctx);
         smallListSequential.update(1);
       }
@@ -193,8 +195,7 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
         for (int i = 0; i < lk + 1; i++)
           lvsub.push_back(vsub[i]);
 
-        estimateSize++;
-        wlSize.update(1);
+        localUpdates++;
         ctx.push(WNode(LPair(lvsub, lvext), label));
       }
     }
@@ -338,7 +339,7 @@ int main(int argc, char **argv) {
   Galois::Graph::readGraph(graph, filename, transposeGraphName);
 
   using namespace Galois::WorkList;
-  typedef ChunkedLIFO<chunkSize> dChunk;
+  typedef dChunkedLIFO<chunkSize> dChunk;
 
   Galois::StatTimer T;
   T.start();
