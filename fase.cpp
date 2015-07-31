@@ -170,7 +170,7 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
     }
     // Small Worklist Phase
     else{
-      if (wlSize.unsafeRead() >= numThreads * chunkSize || lk >= K - 2){
+      if (wlSize.unsafeRead() >= (numThreads - 1) * chunkSize || lk >= K - 2){
         serialExpand(lk + 1, label, vsub, vextSz, vext, ctx);
         smallListSequential.update(1);
       }
