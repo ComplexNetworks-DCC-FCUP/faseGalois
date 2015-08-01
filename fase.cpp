@@ -19,10 +19,10 @@ typedef std::vector<size_t> list;
 typedef std::pair<list, list> LPair;
 typedef std::pair<LPair, long long int> WNode;
 
-const int chunkSize   = 2;
-bool bigIncrease      = true;
-const int bigSizeMult = 7;
-const int smallSizeMult = 2;
+const int chunkSize     = 10;
+bool bigIncrease        = true;
+const int smallSizeMult = 4;
+const int bigSizeMult   = 8 * smallSizeMult;
 
 Galois::GMapElementAccumulator<std::unordered_map<std::string, int> > freqs;
 Galois::GMapElementAccumulator<std::unordered_map<long long int, int> > isoCount;
