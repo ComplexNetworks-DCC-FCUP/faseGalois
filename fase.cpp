@@ -151,7 +151,7 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
 
     vsub[lk] = nx;
 
-    if (numThreads > 1 && iter++ % ((numThreads - 1) * chunkSize * smallSizeMult) == 0) {
+    if (vextSz[lk] * (K - lk) < 10 && numThreads > 1 && iter++ % ((numThreads - 1) * chunkSize * smallSizeMult) == 0) {
       wlSize.update(localUpdates);
       localUpdates = 0;
       estimateSize = wlSize.unsafeRead();
@@ -180,7 +180,7 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
     }
     // Small Worklist Phase
     else{
-      if (estimateSize + localUpdates >= (numThreads - 1) * chunkSize * smallSizeMult || lk >= K - 2){
+      if ((estimateSize + localUpdates >= (numThreads - 1) * chunkSize * smallSizeMult || lk >= K - 2) || vextSz[lk] * (K - lk) < 5 + std::rand() % 500){
         serialExpand(lk + 1, label, vsub, vextSz, vext, ctx);
         smallListSequential.update(1);
       }
@@ -334,6 +334,7 @@ struct DeleteLocal {
 };
 
 int main(int argc, char **argv) {
+  std::srand(1337);
   Galois::StatManager statManager;
   LonestarStart(argc, argv, 0,0,0);
   Galois::Graph::readGraph(graph, filename, transposeGraphName);
