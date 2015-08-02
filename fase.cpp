@@ -21,8 +21,8 @@ typedef std::pair<LPair, long long int> WNode;
 
 const int chunkSize     = 10;
 bool bigIncrease        = true;
-const int smallSizeMult = 4;
-const int bigSizeMult   = 8 * smallSizeMult;
+const int smallSizeMult = 1;
+const long long int bigSizeMult   = 8 * smallSizeMult;
 
 Galois::GMapElementAccumulator<std::unordered_map<std::string, int> > freqs;
 Galois::GMapElementAccumulator<std::unordered_map<long long int, int> > isoCount;
@@ -151,15 +151,17 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
 
     vsub[lk] = nx;
 
-    if (vextSz[lk] * (K - lk) < 10 && numThreads > 1 && iter++ % ((numThreads - 1) * chunkSize * smallSizeMult) == 0) {
+    if (numThreads > 1 && iter++ % ((numThreads - 1) * chunkSize * smallSizeMult) == 0) {
       wlSize.update(localUpdates);
       localUpdates = 0;
       estimateSize = wlSize.unsafeRead();
     }
+    //estimateSize = wlSize.unsafeRead();
 
     // Big Worklist Phase
     if(bigIncrease){
       if (estimateSize + localUpdates >= (numThreads - 1) * chunkSize * bigSizeMult || lk >= K - 2){
+      //if (estimateSize  >= (numThreads - 1) * chunkSize * bigSizeMult){
         bigListSequential.update(1);
         serialExpand(lk + 1, label, vsub, vextSz, vext, ctx);
 
@@ -175,12 +177,14 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
           lvsub.push_back(vsub[i]);
 
         localUpdates++;
+        //wlSize.update(1);
         ctx.push(WNode(LPair(lvsub, lvext), label));
       }
     }
     // Small Worklist Phase
     else{
-      if ((estimateSize + localUpdates >= (numThreads - 1) * chunkSize * smallSizeMult || lk >= K - 2) || vextSz[lk] * (K - lk) < 5 + std::rand() % 500){
+      if (estimateSize + localUpdates >= (numThreads - 1) * chunkSize * smallSizeMult || lk >= K - 2){
+      //if (estimateSize >= (numThreads - 1) * chunkSize * smallSizeMult){
         serialExpand(lk + 1, label, vsub, vextSz, vext, ctx);
         smallListSequential.update(1);
       }
@@ -196,6 +200,7 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
           lvsub.push_back(vsub[i]);
 
         localUpdates++;
+        //wlSize.update(1);
         ctx.push(WNode(LPair(lvsub, lvext), label));
       }
     }
@@ -334,7 +339,6 @@ struct DeleteLocal {
 };
 
 int main(int argc, char **argv) {
-  std::srand(1337);
   Galois::StatManager statManager;
   LonestarStart(argc, argv, 0,0,0);
   Galois::Graph::readGraph(graph, filename, transposeGraphName);
