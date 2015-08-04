@@ -99,17 +99,32 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
   long long int label;
   size_t nx;
 
+  /*printf("Vsub: ");
+  for(int aa = 0; aa < lk; aa++) printf("%d ", vsub[aa]);
+  printf("\n");
+
+  printf("Vext: ");
+  for(int aa = 0; aa < vextSz[lk]; aa++) printf("%d ", vext[lk][aa]);
+  printf("\n");*/
+
   if (lk == K - 1) {
     while (vextSz[lk]) {
       nx = vext[lk][--vextSz[lk]];
+      vsub[K-1] = nx;
 
       label = updateLabel(&vsub[0], lk, nx, clabel);
 
       isoCount.update(label, 1);
+
+      /*printf("Found: ");
+      for (int aaa =0; aaa < K; aaa++)printf("%d ", vsub[aaa]);
+      printf("\n");*/
     }
 
     return;
   }
+
+  //printf("\n");
 
   int estimateSize = wlSize.unsafeRead(), localUpdates = 0, iter = 0;
 
@@ -127,7 +142,8 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
       size_t dst = graph.idFromNode(graph.getEdgeDst(ii));
 
       if (graph.idFromNode(dst) <= graph.idFromNode(vsub[0]) ||
-              std::find(vsub, vsub + lk, dst) != vsub + lk)
+              std::find(vsub, vsub + lk, dst) != vsub + lk ||
+              std::find(vext[lk+1], vext[lk+1] + vextSz[lk+1], dst) != vext[lk+1] + vextSz[lk+1])
         continue;
 
       if(!alreadyInMotif(vsub, lk, dst))
@@ -140,7 +156,7 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
 
       if (graph.idFromNode(dst) <= graph.idFromNode(vsub[0]) ||
               std::find(vsub, vsub + lk, dst) != vsub + lk   ||
-              std::find(vext[lk], vext[lk] + vextSz[lk], dst) != vext[lk] + vextSz[lk])
+              std::find(vext[lk+1], vext[lk+1] + vextSz[lk+1], dst) != vext[lk+1] + vextSz[lk+1])
         continue;
 
       if(!alreadyInMotif(vsub, lk, dst))
@@ -238,7 +254,8 @@ struct FaSE {
     if(vsub.size() == 1){
       for (auto ii = graph.edge_begin(vsub[0]), ee = graph.edge_end(vsub[0]); ii != ee; ++ii) {
         size_t dst = graph.idFromNode(graph.getEdgeDst(ii));
-        if (graph.idFromNode(dst) <= graph.idFromNode(vsub[0]))
+        if (graph.idFromNode(dst) <= graph.idFromNode(vsub[0]) ||
+                std::find(vext.begin(), vext.end(), dst) != vext.end())
           continue;
 
         vext.push_back(dst);
@@ -352,12 +369,18 @@ int main(int argc, char **argv) {
   std::vector<WNode> initialWork;
   Galois::on_each(InitializeLocal());
 
+  //int c = 0;
+
   for (auto v : graph) {
+    //if (c != 12) { c++; continue; }
+
     list lvsub, lvext;
     lvsub.push_back(graph.idFromNode(v));
 
     initialWork.push_back(WNode(LPair(lvsub, lvext), 0LL));
     wlSize.update(1);
+
+    //c++;
   }
 
   Galois::for_each(initialWork.begin(), initialWork.end(), FaSE(), Galois::wl<dChunk>());
