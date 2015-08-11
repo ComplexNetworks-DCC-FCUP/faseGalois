@@ -10,7 +10,7 @@
 #include <string>
 #include <unordered_map>
 
-typedef Galois::Graph::LC_CSR_Graph<int, void>
+typedef Galois::Graph::LC_CSR_Graph<int, int>
 ::with_no_lockable<true>::type
 ::with_numa_alloc<true>::type InnerGraph;
 typedef Galois::Graph::LC_InOut_Graph<InnerGraph> Graph;
@@ -71,26 +71,23 @@ long long int updateLabel(size_t* vsub, int lk, size_t nx, long long int clabel)
   return label;
 }
 
-bool alreadyInMotif(size_t* vsub, int lk, size_t dst){
-  bool fl = 0;
+bool findcmp (Graph::edge_iterator i, Graph::edge_iterator j) {
+  return graph.getEdgeDst(i) < graph.getEdgeDst(j);
+}
 
-  for (auto ii2 = graph.edge_begin(dst, Galois::MethodFlag::NONE),
-       ee2 = graph.edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
-    if (std::find(vsub, vsub + lk, graph.idFromNode(graph.getEdgeDst(ii2))) != vsub + lk) {
-      fl = 1;
-      break;
-    }
+bool connected(size_t a, size_t b) {
+/*  return (std::binary_search(graph.edge_begin(a, Galois::MethodFlag::NONE), graph.edge_end(a, Galois::MethodFlag::NONE), b, findcmp) ||
+          std::binary_search(graph.edge_begin(b, Galois::MethodFlag::NONE), graph.edge_end(b, Galois::MethodFlag::NONE), a, findcmp));*/
 
-  if (fl) return 1;
+  for (auto ii = graph.edge_begin(a, Galois::MethodFlag::NONE),
+         ee = graph.edge_end(a, Galois::MethodFlag::NONE); ii != ee; ++ii)
+    if (graph.idFromNode(graph.getEdgeDst(ii)) == b)
+      return 1;
 
-  for (auto ii2 = graph.in_edge_begin(dst, Galois::MethodFlag::NONE),
-       ee2 = graph.in_edge_end(dst, Galois::MethodFlag::NONE); ii2 != ee2; ++ii2)
-    if (std::find(vsub, vsub + lk, graph.idFromNode(graph.getInEdgeDst(ii2))) != vsub + lk) {
-      fl = 1;
-      break;
-    }
-
-  if (fl) return 1;
+  for (auto ii = graph.edge_begin(b, Galois::MethodFlag::NONE),
+         ee = graph.edge_end(b, Galois::MethodFlag::NONE); ii != ee; ++ii)
+    if (graph.idFromNode(graph.getEdgeDst(ii)) == a)
+      return 1;
 
   return 0;
 }
@@ -137,29 +134,45 @@ void serialExpand(int lk, long long int clabel, size_t *vsub, size_t *vextSz, si
 
     label = clabel;
 
+//  std::vector<size_t, ctx.getPerIterAlloc()> added;
+    std::vector<size_t> added;
+
     for (auto ii = graph.edge_begin(nx, Galois::MethodFlag::NONE),
            ee = graph.edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii) {
       size_t dst = graph.idFromNode(graph.getEdgeDst(ii));
 
-      if (graph.idFromNode(dst) <= graph.idFromNode(vsub[0]) ||
-              std::find(vsub, vsub + lk, dst) != vsub + lk ||
-              std::find(vext[lk+1], vext[lk+1] + vextSz[lk+1], dst) != vext[lk+1] + vextSz[lk+1])
+      if (dst <= vsub[0])
         continue;
 
-      if(!alreadyInMotif(vsub, lk, dst))
+      int i;
+      for (i = 0; i < lk; i++)
+        if (dst == vsub[i] || connected(dst, vsub[i]))
+          break;
+
+      if (i == lk) {
         vext[lk + 1][vextSz[lk + 1]++] = dst;
+        added.push_back(dst);
+      }
     }
+
+    std::sort(added.begin(), added.end());
 
     for (auto ii = graph.in_edge_begin(nx, Galois::MethodFlag::NONE),
            ee = graph.in_edge_end(nx, Galois::MethodFlag::NONE); ii != ee; ++ii) {
       size_t dst = graph.idFromNode(graph.getInEdgeDst(ii));
 
-      if (graph.idFromNode(dst) <= graph.idFromNode(vsub[0]) ||
-              std::find(vsub, vsub + lk, dst) != vsub + lk   ||
-              std::find(vext[lk+1], vext[lk+1] + vextSz[lk+1], dst) != vext[lk+1] + vextSz[lk+1])
+      if (dst <= vsub[0])
         continue;
 
-      if(!alreadyInMotif(vsub, lk, dst))
+      if (std::binary_search(added.begin(), added.end(), dst))
+        continue;
+
+      int i;
+      for (i = 0; i < lk; i++)
+        if (dst == vsub[i] || connected(dst, vsub[i]))
+          break;
+
+      if(i == lk)
         vext[lk + 1][vextSz[lk + 1]++] = dst;
     }
 
@@ -346,6 +359,13 @@ struct InitializeLocal {
   }
 };
 
+struct InitializeGraph {
+  void operator()(GNode& n, Galois::UserContext<GNode>& ctx) const {
+//    graph.sortEdges(n, cmp, Galois::MethodFlag::NONE);
+  }
+};
+
+
 struct DeleteLocal {
   void operator()(unsigned, unsigned) {
     delete [] *perThreadVsub.getLocal();
@@ -368,6 +388,7 @@ int main(int argc, char **argv) {
 
   std::vector<WNode> initialWork;
   Galois::on_each(InitializeLocal());
+  Galois::for_each(graph.begin(), graph.end(), InitializeGraph());
 
   //int c = 0;
 
